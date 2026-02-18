@@ -94,5 +94,13 @@ N×N 的 Attention Map。 在反向传播时，它利用保留的 Output 和 Log
 
 请在附录A中，补充下，全方位 FLOW matching 对比 DDPM 的优劣，两者各自适用的领域范围是什么？还是flow matchting 全面取代 DDPM？
 
+# 端到端自动驾驶技术学习文档
+
+类似LLM ，VLM， vla 技术学习文档，请列举出 截止到2026年 2月份  VLA 或者端到端 在自动驾驶领域 技术进展的要点， 为每个要点写一篇 详细的MarkDown 文档方便我来学习，放在另一个子文件夹里面 请详细介绍下
+
 # world model
 请介绍下World model 是什么？ 并类似LLM 和VLM 技术学习文档，请列举出 截止到2026年 2月份 World Model 技术进展的要点， 为每个要点写一篇 详细的MarkDown 文档方便我来学习，放在另一个子文件夹里面
+
+# VLA In self-driving 技术学习文档
+类似LLM ，VLM， vla 技术学习文档，请列举出 截止到2026年 2月份  VLA 或者端到端 在自动驾驶领域 技术进展的要点， 为每个要点写一篇 详细的MarkDown 文档方便我来学习，放在另一个子文件夹里面 请详细介绍下
+

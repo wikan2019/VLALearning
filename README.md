@@ -1,14 +1,15 @@
 # AI 技术进展学习文档库
 
-> 全面系统地学习大语言模型（LLM）、视觉语言模型（VLM）、视觉-语言-动作模型（VLA）的技术演进
+> 全面系统地学习大语言模型（LLM）、视觉语言模型（VLM）、视觉-语言-动作模型（VLA）、端到端自动驾驶的技术演进
 
 ## 📚 项目简介
 
-本项目汇总了截至 2026 年 2 月，人工智能领域三大关键技术栈的核心进展：
+本项目汇总了截至 2026 年 2 月，人工智能领域四大关键技术栈的核心进展：
 
 - **LLM (Large Language Models)** - 大语言模型的基础架构与效率优化
 - **VLM (Vision-Language Models)** - 多模态理解与视觉推理
 - **VLA (Vision-Language-Action Models)** - 具身智能与机器人控制
+- **AD E2E (End-to-End Autonomous Driving)** - 端到端自动驾驶
 
 每个技术栈都包含详细的技术文档，从基础原理到前沿应用，适合研究者、工程师和学生系统学习。
 
@@ -20,7 +21,8 @@
 .
 ├── LLM_Advances/          # Part 1-2: 大语言模型技术进展 (10篇)
 ├── VLM_Advances/          # Part 3 + 补充: 视觉语言模型技术进展 (16篇)
-├── VLA_Advances/          # Part 4-5: 视觉-语言-动作模型技术进展 (11篇)
+├── VLA_Advances/          # Part 4-5: 视觉-语言-动作模型技术进展 (11篇+附录)
+├── AD_E2E_Advances/       # Part 6-8: 端到端自动驾驶技术进展 (11篇)
 ├── Prompt_log.md          # 文档生成历史与迭代记录
 └── README.md              # 本文件
 ```
@@ -91,6 +93,29 @@
 
 ---
 
+### Part 6-8: 端到端自动驾驶技术进展 (11篇)
+
+👉 [**进入 AD E2E 技术文档目录**](./AD_E2E_Advances/README.md)
+
+#### 感知基础
+28. [架构范式变革](./AD_E2E_Advances/28_AD_Overview.md) - 从模块化到端到端
+29. [BEV 感知](./AD_E2E_Advances/29_BEV_Perception.md) - 鸟瞰视角下的统一表示
+30. [UniAD](./AD_E2E_Advances/30_UniAD.md) - 规划导向的统一框架 (CVPR 2023 Best Paper)
+
+#### 端到端架构与大模型
+31. [3D 占据网络](./AD_E2E_Advances/31_Occupancy_Networks.md) - 从检测框到体素化世界
+32. [端到端规划](./AD_E2E_Advances/32_E2E_Planning.md) - 从感知到控制的直通路径
+33. [VLM/VLA 驾驶](./AD_E2E_Advances/33_VLM_Driving.md) - 大模型遇上自动驾驶
+34. [驾驶世界模型](./AD_E2E_Advances/34_Driving_World_Models.md) - 在脑中预演未来
+
+#### 训练、安全与部署
+35. [Tesla FSD](./AD_E2E_Advances/35_Tesla_FSD.md) - 从规则到端到端神经网络
+36. [训练范式](./AD_E2E_Advances/36_Training_Paradigms.md) - 模仿学习、强化学习与闭环训练
+37. [安全验证](./AD_E2E_Advances/37_Safety_Verification.md) - 端到端模型的可信赖之路
+38. [SOTA 全景对比](./AD_E2E_Advances/38_AD_SOTA_Review.md) - 产业与学术最新进展
+
+---
+
 ## 🔗 技术栈关系图
 
 ```
@@ -99,11 +124,14 @@ LLM (纯文本理解)
 VLM (视觉 + 文本理解)
  ↓
 VLA (视觉 + 文本 + 动作执行)
+ ↓
+端到端自动驾驶 (VLA 在驾驶领域的落地应用)
 ```
 
 - **LLM** 奠定了语言理解与生成的基础
 - **VLM** 将视觉感知与语言理解连接
 - **VLA** 在 VLM 基础上增加了动作输出，实现具身智能
+- **AD E2E** 将 VLA 技术应用于自动驾驶，实现从摄像头到方向盘的端到端控制
 
 文档间有大量技术复用和引用关系，建议按顺序学习。
 
