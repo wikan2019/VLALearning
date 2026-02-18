@@ -84,5 +84,15 @@ N×N 的 Attention Map。 在反向传播时，它利用保留的 Output 和 Log
 
 请介绍第19篇，自回归模型无法获取动作的联合分布会有什么问题？ 请详细说明。以及详细解释 五大架构，必要时补充公式，并切对比下五大架构的优缺点，效果上的差异，这五大架构是否有各自的擅长领域。将以上内容补充在第19篇文档里。
 
+第20篇中， 为什么VLA 结构没有 直接用regression head 的方式？ 请补充在markdown 文档里面， 并详细为我介绍下flow matching 的原理，以及在vla 领域里的应用，必要附上流程图和公式，写在一个VLA目录下的markdown 文件里，作为附录知识介绍。
+
+第19 篇中介绍了 双视觉编码器成为标配：DINOv2 (空间) + SigLIP/CLIP (语义) 的组合被广泛采用。 请介绍下这中双视觉头是怎么训练的，DINOv2 (空间) + SigLIP/CLIP 这两个视觉头的区别在哪里。写在一个VLA目录下的markdown 文件里，作为附录知识介绍。
+
+第19 篇中介绍了 双视觉编码器成为标配：DINOv2 (空间) + SigLIP/CLIP (语义) 的组合被广泛采用。 请介绍下这中双视觉头是怎么训练的，DINOv2 (空间) + SigLIP/CLIP 这两个视觉头的区别在哪里。写在一个VLA目录下的markdown 文件里，作为附录知识介绍。
+
+在第20篇中，讲了regression head 的一个缺陷：  (d) 致命问题 3：梯度信号不均匀， MSE Loss 对大误差和小误差的梯度量级差异巨大， 导致regression head 对精细操作，精度不够。 这种现象在diffusion 架构上可以避免吗？ 为什么？ 请补充在20篇里面。
+
+请在附录A中，补充下，全方位 FLOW matching 对比 DDPM 的优劣，两者各自适用的领域范围是什么？还是flow matchting 全面取代 DDPM？
+
 # world model
 请介绍下World model 是什么？ 并类似LLM 和VLM 技术学习文档，请列举出 截止到2026年 2月份 World Model 技术进展的要点， 为每个要点写一篇 详细的MarkDown 文档方便我来学习，放在另一个子文件夹里面

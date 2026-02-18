@@ -89,6 +89,20 @@ VLA 是 VLM 的自然延伸——**VLM 让模型"看懂世界"，VLA 则让模�
 
 ---
 
+## 附录
+
+### Appendix A. [Flow Matching 原理详解](./Appendix_A_Flow_Matching.md)
+*   **内容**：从扩散模型到 Flow Matching 的演进、CNF 数学基础、条件 Flow Matching 算法、OT 路径、与 DDPM 的对比
+*   **核心价值**：深入理解 π0 等 VLA 模型采用的 Flow Matching 动作生成方法，包含完整的数学推导、训练/推理流程图和伪代码
+*   **关联阅读**：→ [19. VLA 架构](./19_VLA_Architecture.md)（扩散范式）、→ [20. 动作表示](./20_Action_Tokenization.md)（为什么不用 Regression Head）、→ [22. π0 系列](./22_Pi0_Generalist_Policy.md)
+
+### Appendix B. [双视觉编码器详解——DINOv2 + SigLIP/CLIP](./Appendix_B_Dual_Vision_Encoder.md)
+*   **内容**：CLIP 对比学习原理、SigLIP 的 Sigmoid 改进、DINOv2 自蒸馏训练（DINO + iBOT + KoLeo）、三者的核心差异、Prismatic VLM 双编码器融合方法
+*   **核心价值**：深入理解 VLA 为什么需要双视觉编码器，以及语义（SigLIP）与空间（DINOv2）特征如何互补实现精确的机器人操作
+*   **关联阅读**：→ [19. VLA 架构](./19_VLA_Architecture.md)（视觉编码器章节）、→ [21. OpenVLA](./21_OpenVLA.md)
+
+---
+
 ## 🔗 技术关联图
 
 ```
