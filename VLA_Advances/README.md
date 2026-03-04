@@ -101,6 +101,11 @@ VLA 是 VLM 的自然延伸——**VLM 让模型"看懂世界"，VLA 则让模�
 *   **核心价值**：深入理解 VLA 为什么需要双视觉编码器，以及语义（SigLIP）与空间（DINOv2）特征如何互补实现精确的机器人操作
 *   **关联阅读**：→ [19. VLA 架构](./19_VLA_Architecture.md)（视觉编码器章节）、→ [21. OpenVLA](./21_OpenVLA.md)
 
+### Appendix C. [数据工程：从数据金字塔到潜在动作提取](./Appendix_C_Data_Engineering.md)
+*   **内容**：GR00T N1 数据金字塔、LAPA 潜在动作提取（VQ-VAE）、神经轨迹生成（视频模型反事实数据）、DexMimicGen 仿真扩增、IDM 逆动力学伪动作标注、LeRobot 格式扩展、RoboVLMs 跨具身训练策略、AD 数据引擎对比
+*   **核心价值**：系统性介绍 VLA 和自动驾驶领域的数据处理方法与数据提取技术，涵盖从人类视频中提取潜在动作、合成数据 10× 扩增、数据质量过滤等关键手段
+*   **关联阅读**：→ [23. 跨具身数据](./23_Data_Cross_Embodiment.md)（数据集详解）、→ [35. Tesla FSD](../AD_E2E_Advances/35_Tesla_FSD.md)（数据引擎）
+
 ---
 
 ## 🔗 技术关联图

@@ -104,3 +104,19 @@ N×N 的 Attention Map。 在反向传播时，它利用保留的 Output 和 Log
 # VLA In self-driving 技术学习文档
 类似LLM ，VLM， vla 技术学习文档，请列举出 截止到2026年 2月份  VLA 或者端到端 在自动驾驶领域 技术进展的要点， 为每个要点写一篇 详细的MarkDown 文档方便我来学习，放在另一个子文件夹里面 请详细介绍下
 
+# VLA 和自动驾驶数据工程
+请联网搜索，获取最新资料。为我接着介绍在VLA 和自动驾驶领域，司机或者机器人的数据是怎么被使用的？ 有哪些关键数据处理方法，或者数据提取手段可以提升 VLA 或者自动驾驶模型的表现性能。
+
+请为我继续介绍 自动驾驶领域的数据使用方法，请参考 Waymo，英伟达，特斯拉等工业界和学术界方法来继续完善自动驾驶数据使用的内容。
+
+# 驾驶世界模型的 AD 训练应用
+请为我继续完善 34_Driving_World_Models.md，后3个世界模型 (GAIA-2, Drive-WM, GenAD) 是怎么用到自动驾驶训练里面去的，效果怎么样？对哪些场景会有所提升？
+
+# Paper Reading
+请开一个paper reading 文件夹。为我介绍一下这篇 Waymo 的论文：https://arxiv.org/pdf/2506.19488 (SceneCrafter: Controllable Multi-View Driving Scene Editing, CVPR 2025)。做个详细的介绍，写在MD文件里面。
+
+# 世界模型 × 强化学习在自动驾驶中的应用
+请为我介绍，自动驾驶领域的生成式世界模型是怎么跟强化学习一起提升自动驾驶的效果的？
+
+# RIFT 论文阅读
+请介绍 34 篇文章里的 RIFT (2025) 方法，另写一篇 markdown 文档
