@@ -1136,44 +1136,440 @@ Step 4: 部署到新环境时
 
 ---
 
-## 5. π0 系列开源
+## 5. π0.6 / π*0.6：从经验中学习（2025.11）
 
-Physical Intelligence 在 2025 年陆续开源了部分模型：
+> **模型卡片**：*π0.6 Model Card* (Physical Intelligence, November 2025)
+> **博客**：*π\*0.6: a VLA that Learns from Experience* (Physical Intelligence, November 2025)
+
+### (a) 动机：模仿学习的天花板
+
+π0.5 实现了开放世界零样本泛化，但仍然依赖于**纯监督学习（模仿学习）**训练范式。这种范式存在一个深层矛盾——**复合误差 (Compounding Error)**：
+
+```
+模仿学习的复合误差问题:
+
+  训练时: 人类示教数据 → 模型学到"正确状态下该怎么做"
+  
+  部署时:
+    Step 1: 小误差 → 抓取位姿偏移 2mm         ← 模型犯了个小错
+    Step 2: 偏移后的状态不在训练分布中           ← 分布偏移 (Distribution Shift)
+    Step 3: 在陌生状态下犯更大的错 → 偏移 5mm   ← 误差开始放大
+    Step 4: 偏移继续累积 → 任务失败              ← 复合误差导致崩溃
+    
+  结果: "成功一半的时间"容易，"每次都成功"极难
+```
+
+这个问题在 LLM 中不那么严重——LLM 生成静态文本，不需要与物理环境持续交互。但机器人是**控制策略 (Control Policy)**，每一步的输出都会改变环境状态，小错误会通过物理交互不断放大。
+
+**核心问题**：能否让模型像人类一样，不仅从示教中学习，还能从**自身的实践经验**中持续改进？
+
+### (b) π0.6 基座模型：架构升级
+
+π0.6 在 π0.5 的基础上进行了关键升级，但保留了层级式架构设计：
+
+```
+π0.6 架构升级:
+
+┌──────────────────────────────────────────────────────────────────┐
+│                         π0.6 架构                                │
+│                                                                  │
+│  ┌──────────────────────────────────────────────────────────┐    │
+│  │  预训练 VLM 骨干: SigLIP (400M) + Gemma3 4B              │    │
+│  │  (π0.5 使用 Gemma1 2B → π0.6 升级为 Gemma3 4B)          │    │
+│  │                                                          │    │
+│  │  输入:                                                   │    │
+│  │   - 最多 4 个相机 (448×448): 基座/腕部×2/后视(可选)       │    │
+│  │   - 语言指令 + 条件元数据 (metadata)                      │    │
+│  │   - 本体感受状态                                          │    │
+│  │                                                          │    │
+│  │  Attention 策略:                                          │    │
+│  │   - 图像 Token 之间: 双向 Attention                       │    │
+│  │   - 文本 Token 之间: 因果 Attention (自回归)               │    │
+│  │                                                          │    │
+│  │  输出: FAST Token (离散动作) + 协同训练目标 (网页数据)     │    │
+│  └──────────────────────────────────────────────────────────┘    │
+│                            ↓ Hidden State                        │
+│  ┌──────────────────────────────────────────────────────────┐    │
+│  │  动作专家 (Action Expert): ~860M 参数                     │    │
+│  │  与骨干层数相同，使用双向 Attention                        │    │
+│  │  输出: 连续动作 (Flow Matching, 5 步去噪)                 │    │
+│  │  ⚠️ 梯度不回传到 VLM 骨干 (Knowledge Insulation)         │    │
+│  └──────────────────────────────────────────────────────────┘    │
+│                                                                  │
+│  推理耗时: 63ms / Action Chunk (单 H100 GPU, 3 个相机)          │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+**相比 π0.5 的三大改进**
+
+| # | 改进 | 详情 |
+| :--- | :--- | :--- |
+| **1** | **VLM 骨干升级** | Gemma1 2B → Gemma3 4B，更强的多模态感知与知识推理能力 |
+| **2** | **条件元数据 (Conditioning Metadata)** | 在 Prompt 中加入元信息（如任务执行质量、速度等），实现更精细的任务控制 |
+| **3** | **训练数据质量与多样性** | 更丰富的灵巧操作和泛化数据，使得**无需任务特定微调**即可获得强劲的开箱即用性能 |
+
+**关键突破：开箱即用 (Out-of-the-Box)**
+
+π0.5 在一些困难任务（如洗衣折叠、纸箱组装）上仍需要任务特定的后训练 (post-training) 才能达到非零成功率。π0.6 在这些任务上**无需任何微调**即可直接工作——折叠洗衣物达到稳定成功率，纸箱组装达到 20% 成功率。
+
+### (c) π*0.6：Recap 强化学习方法
+
+π\*0.6 是在 π0.6 基座上通过 **Recap (RL with Experience & Corrections via Advantage-conditioned Policies)** 方法进一步训练的强化学习版本。
+
+**Recap 的三阶段训练——模拟人类学习过程**
+
+```
+人类如何学习组装纸箱:                    Recap 如何训练机器人:
+                                         
+1. 请人示范 (Demonstration)              1. 示教数据训练 (Supervised Learning)
+   "看我怎么折"                             在人类远程操作数据上训练
+                                         
+2. 边做边被纠正 (Coaching)               2. 纠错介入 (Corrections)
+   "你这里折错了,应该这样"                  专家在机器人犯错时接管,提供实时纠正
+                                         
+3. 反复练习 (Practice)                   3. 自主练习 + 强化学习 (RL)
+   "多做几次就熟了"                         机器人自主执行,从成功/失败中学习
+```
+
+**为什么纯模仿不够，需要强化学习？**
+
+核心问题是**信用分配 (Credit Assignment)**：
+
+```
+Espresso 制作失败的场景:
+
+  Step 3: 抓取滤杯 → 角度稍偏 (微小错误)
+  Step 4: 搬运滤杯 → 看起来正常
+  Step 5: 插入咖啡机 → 失败！滤杯卡住
+
+  问题: 失败发生在 Step 5，但真正的错误在 Step 3
+  模仿学习: 只知道"最终失败了"，无法定位 Step 3 的角度错误
+  强化学习: 通过价值函数追溯，识别出 Step 3 是问题根源
+```
+
+**Recap 的核心技术：价值函数 + 优势条件化策略**
+
+```
+Recap 技术细节:
+
+Step 1: 训练价值函数 V(s)
+  V(s) = "当前状态有多好" (预测从当前状态到任务完成的距离)
+  
+  V(抓取姿态正确) = 0.8   ← 高价值，后续大概率成功
+  V(抓取姿态偏斜) = 0.3   ← 低价值，后续大概率失败
+  
+Step 2: 计算优势 (Advantage)
+  A(s,a) = V(s') - V(s)   ← 执行动作 a 后，价值的变化量
+  
+  A > 0: 这个动作使情况变好 ← 应该鼓励
+  A < 0: 这个动作使情况变差 ← 应该抑制
+  A ≈ 0: 这个动作影响不大
+  
+Step 3: 优势条件化策略训练
+  不丢弃任何数据（好的和坏的都保留）
+  给每条数据标注其优势值 A
+  训练 VLA 以 A 为条件生成动作:
+    p(action | observation, language, advantage=A)
+  
+  部署时: 将 A 设为高值 → 模型生成"高优势"动作
+  → 产生的策略比训练数据本身更优！
+```
+
+**为什么优势条件化比简单筛选好？**
+
+| 方法 | 做法 | 问题 |
+| :--- | :--- | :--- |
+| **筛选法** | 只保留成功轨迹训练 | 丢弃大量数据，模型不知道什么是"错"的 |
+| **加权法** | 按成功率加权 | 粒度太粗，无法区分轨迹内部的好/坏动作 |
+| **Recap** | 保留所有数据 + 优势标注 | 最大化数据利用 + 细粒度信用分配 |
+
+### (d) 关键成果
+
+π\*0.6 在三个实际应用上展示了 Recap 的威力：
+
+| 任务 | π0.6 (纯模仿) | π\*0.6 (Recap RL) | 改进 |
+| :--- | :--- | :--- | :--- |
+| **Espresso 制作** | 成功率 ~40%, 吞吐量低 | 成功率 >90%, 吞吐量翻倍+ | 全天连续制作咖啡 (5:30am-11:30pm) |
+| **洗衣折叠** | 基本款可折，新款困难 | 50 种全新衣物连续折叠数小时 | 吞吐量显著提升 |
+| **纸箱组装** | 成功率低 | 成功率大幅提升 | 在真实巧克力工厂完成 59 个纸箱包装 |
+
+### (e) π0.6 / π*0.6 的主要贡献总结
+
+| # | 贡献 | 意义 |
+| :--- | :--- | :--- |
+| **C1** | **VLM 骨干升级至 Gemma3 4B** | 更强的多模态理解与推理能力，配合条件元数据实现更精细的任务控制 |
+| **C2** | **开箱即用性能的质变** | 无需任务特定微调即可在洗衣折叠、纸箱组装等高难度任务上获得非零甚至稳定的成功率 |
+| **C3** | **Recap 强化学习方法** | 三阶段（示教→纠错→自主练习）训练范式，解决纯模仿学习的复合误差瓶颈 |
+| **C4** | **价值函数 + 优势条件化策略** | 在保留全部数据的前提下实现细粒度信用分配，使训练后的策略可以超越训练数据本身的质量 |
+| **C5** | **首次实现全天连续可靠运行** | Espresso 连续 18 小时、洗衣折叠数小时不中断，证明 VLA 可以达到实用级别的鲁棒性 |
+| **C6** | **从"学习模仿"到"学习经验"的范式转变** | 打破了 VLA 仅依赖人类示教数据的局限，开启了机器人从自主实践中持续改进的新范式 |
+
+---
+
+## 6. π0.7：可操控的通用模型与涌现能力（2026.04）
+
+> **博客**：*π0.7: a Steerable Model with Emergent Capabilities* (Physical Intelligence, April 2026)
+
+### (a) 动机：从"专家系统"到"通用智能"
+
+π\*0.6 虽然在特定任务上达到了实用级鲁棒性，但本质上仍是**任务特定微调**的产物——每个任务（Espresso、折叠、组装）都有一个独立微调的 π\*0.6 专家模型。这与 VLA 追求的"通用机器人大脑"理念存在根本矛盾：
+
+```
+π*0.6 的局限 (专家模式):
+
+  π*0.6_espresso  ← 只会做 Espresso
+  π*0.6_laundry   ← 只会折衣服
+  π*0.6_box       ← 只会装纸箱
+  
+  问题 1: 新任务 = 新一轮 RL 微调 (昂贵)
+  问题 2: 无法组合——"先做咖啡再折衣服" 需要切换模型
+  问题 3: 没有泛化——遇到训练中没见过的厨房电器就不会用
+```
+
+**真正的通用模型应该像 LLM 那样具备组合泛化 (Compositional Generalization)**：
+
+```
+LLM 的组合泛化:
+  知道"英语→法语翻译" + 知道"JSON 格式" 
+  → 能做"英法翻译并输出 JSON" (训练中没见过这个组合)
+
+VLA 理想的组合泛化:
+  知道"抓取物体" + 知道"空气炸锅长什么样"
+  → 能"把红薯放进空气炸锅" (训练中几乎没见过这个任务)
+```
+
+π0.7 的目标：**一个模型**，无需微调，既能达到 π\*0.6 专家级的灵巧操作水平，又能组合已学技能解决全新任务。
+
+### (b) 核心创新：多模态 Prompt 框架
+
+π0.7 实现通用性的关键不在于更大的模型或更多的数据，而在于**如何利用数据**——通过多样化的多模态 Prompt 结构，让异构数据在同一个模型中共存而不冲突。
+
+```
+π0.7 的多模态 Prompt 框架:
+
+┌────────────────────────────────────────────────────────────────┐
+│                     训练时的 Prompt 构成                        │
+│                                                                │
+│  1. 语言指令 (Language Instructions)                            │
+│     "拿起烤箱手套", "打开抽屉", "折叠毛巾"                      │
+│     → 定义"做什么"                                              │
+│                                                                │
+│  2. 元数据 (Metadata)                                           │
+│     - 执行质量: "高质量" / "低质量" / "有误差"                   │
+│     - 执行速度: "快速" / "正常" / "慢速"                         │
+│     → 定义"做得怎么样"                                          │
+│                                                                │
+│  3. 控制模态标签 (Control Modality)                              │
+│     "关节控制" / "末端执行器控制"                                │
+│     → 定义"用什么方式做"                                        │
+│                                                                │
+│  4. 视觉子目标 (Visual Subgoals)                                │
+│     当前子步骤完成后的目标图像                                    │
+│     → 定义"做成什么样"                                          │
+└────────────────────────────────────────────────────────────────┘
+```
+
+**为什么多模态 Prompt 是关键？**
+
+```
+朴素混合数据的问题:
+
+  数据 A: 专家示教 (高质量, 慢速) → "折叠衣服应该这样做"
+  数据 B: RL 自主数据 (低质量, 快速) → "折叠衣服应该那样做"  
+  数据 C: 人类视频 (只有视觉, 无动作) → "折叠衣服看起来像这样"
+  
+  直接混合 → 模型困惑: 到底该学 A、B 还是 C 的策略？
+  
+π0.7 的解决方案:
+
+  数据 A + Prompt{quality="high", speed="slow"} 
+  数据 B + Prompt{quality="low", speed="fast"}
+  数据 C + Prompt{subgoal_image=目标图像}
+  
+  每条数据都有明确的上下文 → 模型不再困惑
+  → 低质量数据不会"拖低"模型，而是教会模型"什么是低质量"
+  → 部署时设置 quality="high", speed="fast" → 高质量快速执行
+```
+
+**视觉子目标 + 世界模型 (World Model)**
+
+```
+π0.7 的推理流程:
+
+┌──────────────────────────────────────────────────────────────┐
+│                                                              │
+│  高层策略: "清理厨房桌面"                                      │
+│       ↓                                                      │
+│  语言子任务: "把碗放到水槽里"                                   │
+│       ↓                                                      │
+│  世界模型 (World Model):                                       │
+│    输入: 当前图像 + "把碗放到水槽里"                             │
+│    输出: 合成的目标图像 (碗在水槽中的样子)                       │
+│       ↓                                                      │
+│  π0.7:                                                       │
+│    输入: 当前观测 + 语言子任务 + 视觉子目标 + 元数据             │
+│    输出: Action Chunk                                         │
+│                                                              │
+│  视觉子目标的作用: 精确定义空间布局目标                          │
+│  语言子任务的作用: 定义语义目标                                  │
+│  两者互补: "放到水槽" (语义) + 目标图像 (空间精度)              │
+└──────────────────────────────────────────────────────────────┘
+```
+
+### (c) 涌现能力：组合泛化 (Compositional Generalization)
+
+π0.7 展示了 VLA 领域**首次观察到的组合泛化现象**——模型能将不同任务中学到的技能重新组合，解决训练中从未出现过的新任务。
+
+**标志性实验：空气炸锅 (Air Fryer)**
+
+```
+训练数据中的相关经验:
+  ① 2 条关闭空气炸锅的数据 (标签: "push the frying basket into the airfryer")
+  ② DROID 开源数据集中 Franka 机械臂的通用操作数据
+  ③ 互联网预训练知识 ("空气炸锅是一种厨房电器")
+  
+  ❌ 没有"把红薯放进空气炸锅"的完整训练数据
+
+π0.7 的表现:
+
+  零样本 (单条指令 "load a sweet potato into the air fryer"):
+    → 合理尝试，完成部分步骤，但未完成全部 (~5% 成功率)
+  
+  语言引导 (分步语言指令):
+    Step 1: "拿起红薯"
+    Step 2: "把空气炸锅的篮子拉出来" 
+    Step 3: "把红薯放进篮子"
+    Step 4: "把篮子推回去"
+    → 成功完成！ (~95% 成功率)
+
+  自主执行 (微调高层策略后):
+    → 高层策略自动生成分步指令 + 世界模型生成子目标图像
+    → 全自主完成，无需人类引导
+```
+
+**为什么这是"涌现"的？**
+
+模型从未见过完整的"用空气炸锅烹饪"任务数据。它通过**组合**实现了这个行为：
+
+```
+组合来源:
+  "拿起物体" ← 来自大量通用抓取数据
+  "空气炸锅的外观与操作" ← 来自 2 条关闭空气炸锅的数据 + 互联网预训练
+  "拉出/推入抽屉式结构" ← 来自抽屉操作的训练数据
+  "放置物体到容器中" ← 来自大量放置任务数据
+  
+  π0.7 = 拿起红薯 ⊕ 识别空气炸锅 ⊕ 拉出篮子 ⊕ 放入 ⊕ 推回
+         (组合，而非直接模仿)
+```
+
+这类似于 LLM 的组合泛化——知道翻译 + 知道 JSON → 能做 JSON 格式翻译。
+
+### (d) 跨本体迁移 (Cross-Embodiment Transfer)
+
+π0.7 展示了跨机器人平台的惊人迁移能力：
+
+```
+实验: 双臂 UR5e 折叠衣服
+
+  训练数据: 折叠衣服的数据全部来自小型双臂静态机器人
+  测试平台: 大型双臂 UR5e 工业机械臂 + Robotiq 平行夹爪
+  
+  两个平台差异巨大:
+  - 尺寸: UR5e 臂展远大于训练用机器人
+  - 惯性: UR5e 手臂更重，动态特性完全不同
+  - 夹爪: 不同的抓取机构
+  
+  结果: π0.7 在 UR5e 上零样本折叠衣服
+  → 自动调整了策略以适应不同的机器人尺寸和定位
+  → 成功率与资深人类遥操作员首次使用 UR5e 的水平相当
+     (这些遥操作员平均有 375 小时遥操作经验)
+```
+
+### (e) 单模型匹敌多个专家
+
+π0.7 的最令人印象深刻之处在于：**一个通用模型**在各项任务上达到甚至超越了 π\*0.6 专家模型的水平。
+
+| 任务 | π\*0.6 专家 (各自微调) | π0.7 通用模型 (无微调) |
+| :--- | :--- | :--- |
+| **洗衣折叠 (T恤+短裤)** | 基线 | 吞吐量 ≥ 专家水平 |
+| **洗衣折叠 (困难衣物)** | 基线 | 吞吐量 ≥ 专家水平 |
+| **Espresso 制作** | 基线 | 成功率持平，吞吐量接近 |
+| **纸箱组装** | 基线 | 吞吐量 ≥ 专家水平 |
+
+这是通过将 Recap RL 训练过程中产生的自主经验数据**蒸馏**到 π0.7 中实现的——用元数据标注这些数据的质量和策略，让通用模型从专家的"练习过程"中学习。
+
+### (f) π0.7 的主要贡献总结
+
+| # | 贡献 | 意义 |
+| :--- | :--- | :--- |
+| **C1** | **多模态 Prompt 框架** | 语言+元数据+控制模态+视觉子目标的统一 Prompt 设计，让异构数据（示教/RL/人类视频/低质量数据）和谐共存于同一模型 |
+| **C2** | **VLA 领域首次组合泛化** | 模型能组合不同任务中的技能解决从未见过的新任务（空气炸锅实验），类似于 LLM 的组合推理能力 |
+| **C3** | **通用模型 ≥ 专家模型** | 单一 π0.7 模型在所有任务上匹配甚至超越各自独立 RL 微调的 π\*0.6 专家模型，消除了"每个任务一个模型"的需求 |
+| **C4** | **强跨本体迁移** | 零样本迁移到物理特性完全不同的机器人平台（UR5e 折叠衣服），成功率与资深人类遥操作员首次尝试持平 |
+| **C5** | **可操控性 (Steerability)** | 通过元数据控制执行速度和质量，部署时可按需调节机器人行为策略 |
+| **C6** | **世界模型辅助视觉子目标** | 轻量级世界模型在推理时生成目标图像，为动作策略提供精确的空间布局目标，增强视觉泛化能力 |
+
+---
+
+## 7. π0 系列开源
+
+Physical Intelligence 陆续开源了部分模型：
 
 | 模型 | 开源状态 | 链接 |
 | :--- | :--- | :--- |
 | π0 | ✅ 权重 + 代码 | github.com/Physical-Intelligence/openpi |
 | π0-FAST | ✅ 权重 + 代码 | 同上 |
-| π0.5 | 部分开源 | — |
+| π0.5 | ✅ 权重 + 代码 (Knowledge Insulation 版本) | 同上 |
+| π0.6 | ✅ 模型卡片公开 | 同上 |
+| π*0.6 | 部分公开 | — |
+| π0.7 | 未开源 | — |
 
-## 6. π0 系列时间线
+## 8. π0 系列时间线
 
 ```
-2024.10  π0 发布        ← 首个通用机器人基座模型，10000+ 小时数据
+2024.10  π0 发布        ← 首个通用机器人基座模型，Flow Matching 动作头，10000+ 小时数据
 2025.01  FAST 发布      ← 频域动作编码，自回归替代扩散，5x 加速
 2025.01  π0-FAST 发布   ← π0 的高效自回归版本
-2025.04  π0.5 发布      ← 🔑 首次开放世界泛化，全新家庭环境
+2025.04  π0.5 发布      ← 首次开放世界泛化，知识隔离 + 高低层解耦
 2025.H1  OpenPi 开源    ← 社区可以复现和扩展
+2025.11  π0.6 发布      ← Gemma3 4B 骨干，开箱即用性能质变
+2025.11  π*0.6 发布     ← 🔑 Recap RL，从自身经验中学习，全天连续运行
+2026.04  π0.7 发布      ← 🔑 组合泛化涌现，单模型 ≥ 多个专家，可操控通用模型
 ```
 
-## 7. π0 vs OpenVLA vs RT-2
+## 9. π0 系列内部演进对比
 
-| 特性 | RT-2-X | OpenVLA | π0 / π0.5 |
+| 特性 | π0 | π0-FAST | π0.5 | π0.6 / π*0.6 | π0.7 |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **发布时间** | 2024.10 | 2025.01 | 2025.04 | 2025.11 | 2026.04 |
+| **VLM 骨干** | PaliGemma 3B | PaliGemma 3B | PaliGemma 3B | SigLIP + Gemma3 4B | SigLIP + Gemma3 4B+ |
+| **动作生成** | Flow Matching | FAST 自回归 | Flow Matching + FAST | Flow Matching + FAST | Flow Matching + FAST |
+| **核心突破** | 首个通用 VLA | 5x 推理加速 | 开放世界泛化 | RL 从经验学习 | 组合泛化涌现 |
+| **需要微调?** | Stage 3 可选 | 可选 | 部分任务需要 | 无需任务微调 | 无需任务微调 |
+| **RL 训练** | ❌ | ❌ | ❌ | ✅ (Recap) | 蒸馏 Recap 经验 |
+| **泛化方式** | 多任务 | 多任务 | 零样本新环境 | 零样本 + RL 改进 | 组合泛化新任务 |
+| **长程任务** | 有限 | 有限 | 10+ 步 | 全天连续运行 | 多任务自主链式执行 |
+
+## 10. π0 vs OpenVLA vs RT-2
+
+| 特性 | RT-2-X | OpenVLA | π0 系列 (最新: π0.7) |
 | :--- | :--- | :--- | :--- |
-| **参数量** | 55B | 7B | 未公开 (估计 ~3-7B) |
-| **动作头** | 自回归 Binning | 自回归 Binning | **扩散 / FAST** |
+| **参数量** | 55B | 7B | ~5B (VLM) + 860M (Action Expert) |
+| **动作头** | 自回归 Binning | 自回归 Binning | **Flow Matching + FAST** |
 | **数据规模** | ~数百小时 | ~2000 小时 | **10,000+ 小时** |
-| **操作精度** | 中 | 中 | **高 (扩散)** |
-| **泛化能力** | 有限 | 中 | **开放世界 (π0.5)** |
+| **操作精度** | 中 | 中 | **高 (扩散 + RL)** |
+| **泛化能力** | 有限 | 中 | **组合泛化 (π0.7)** |
+| **RL 改进** | ❌ | ❌ | **✅ (Recap)** |
 | **双臂支持** | ❌ | ❌ | **✅** |
-| **灵巧操作** | 有限 | 有限 | **折叠、擦拭等** |
+| **灵巧操作** | 有限 | 有限 | **折叠、Espresso、组装等** |
+| **跨本体迁移** | 有限 | 有限 | **✅ (零样本迁移 UR5e)** |
 | **开源** | ❌ | ✅ | ✅ (部分) |
 
-> **一句话总结**：π0 系列是目前最接近"通用机器人大脑"的模型——π0 用扩散策略实现了多机器人多任务控制，π0-FAST 用频域编码将速度提升 5 倍，π0.5 则首次将机器人从实验室带入了真实家庭。它代表了 VLA 从"实验室 demo"到"真实世界部署"的关键一步。
+> **一句话总结**：π0 系列是目前最接近"通用机器人大脑"的模型——π0 用扩散策略开创了 VLA 新范式，π0-FAST 用频域编码将速度提升 5 倍，π0.5 首次实现开放世界泛化，π0.6/π\*0.6 通过强化学习让机器人从自身经验中持续改进达到全天运行水平，π0.7 则展现出组合泛化的涌现能力——一个模型超越多个专家。从 2024 到 2026，π0 系列完整走过了"能动→快速→泛化→鲁棒→通用"的演进路径，代表了 VLA 从实验室走向真实世界的完整技术路线。
 
 ---
 
-## 8. 主要参考文献
+## 11. 主要参考文献
 
 ### π0 系列核心论文
 
@@ -1183,26 +1579,40 @@ Physical Intelligence 在 2025 年陆续开源了部分模型：
 
 3.  **[π0.5]** Physical Intelligence, Black, K., Brown, N., Driess, D., Esmail, A., Equi, M., Finn, C., Fusai, N., Ganeshan, A., Groom, L., Hausman, K., Ichter, B., Jakubczak, S., Jones, T., Ke, L., Kirmani, S., Lee, K., Levine, S., Li-Bell, A., Lin, J., Luo, J., Mothukuri, M., Nair, S., Nasiriany, S., Pertsch, K., Shi, L. R., Tanner, J., Vuong, Q., Walling, A., Wang, H., & Zhilinsky, O. (2025). *π0.5: a Vision-Language-Action Model with Open-World Generalization*. arXiv:2504.16054.
 
+4.  **[Knowledge Insulation]** Driess, D., Springenberg, J. T., Ichter, B., Yu, L., Li-Bell, A., Pertsch, K., Ren, A. Z., Walke, H., Vuong, Q., Shi, L. R., et al. (2025). *Knowledge Insulating Vision-Language-Action Models: Train Fast, Run Fast, Generalize Better*. NeurIPS 2025 (Spotlight).
+
+5.  **[π0.6 Model Card]** Physical Intelligence. (2025). *π0.6 Model Card*. November 2025.
+
+6.  **[π\*0.6 / Recap]** Physical Intelligence team. (2025). *π\*0.6: a VLA That Learns From Experience*. November 2025. Blog: pi.website/blog/pistar06.
+
+7.  **[π0.7]** Physical Intelligence team. (2026). *π0.7: a Steerable Model with Emergent Capabilities*. April 2026. Blog: pi.website/blog/pi07.
+
 ### 基础架构与前置工作
 
-4.  **[PaliGemma]** Beyer, L., Steiner, A., Pinto, A. S., Kolesnikov, A., Wang, X., Salz, D., Neumann, M., Alabdulmohsin, I., Tschannen, M., Bugliarello, E., Unterthiner, T., Keysers, D., Koppula, S., Xiong, F., Houlsby, N., Gritsenko, A. A., Garg, S., Minderer, M., Mustafa, B., & Zhai, X. (2024). *PaliGemma: A versatile 3B VLM for transfer*. arXiv:2407.07726.
+8.  **[PaliGemma]** Beyer, L., Steiner, A., Pinto, A. S., Kolesnikov, A., Wang, X., Salz, D., Neumann, M., Alabdulmohsin, I., Tschannen, M., Bugliarello, E., Unterthiner, T., Keysers, D., Koppula, S., Xiong, F., Houlsby, N., Gritsenko, A. A., Garg, S., Minderer, M., Mustafa, B., & Zhai, X. (2024). *PaliGemma: A versatile 3B VLM for transfer*. arXiv:2407.07726.
 
-5.  **[Flow Matching]** Lipman, Y., Chen, R. T. Q., Ben-Hamu, H., Nickel, M. (2023). *Flow Matching for Generative Modeling*. ICLR 2023.
+9.  **[Gemma 3]** Gemma Team, Kamath, A., Ferret, J., Pathak, S., Vieillard, N., Merhej, R., et al. (2025). *Gemma 3 Technical Report*. arXiv:2503.19786.
 
-6.  **[Diffusion Policy]** Chi, C., Feng, S., Du, Y., Xu, Z., Cousineau, E., Burchfiel, B., & Song, S. (2023). *Diffusion Policy: Visuomotor Policy Learning via Action Diffusion*. RSS 2023.
+10.  **[Flow Matching]** Lipman, Y., Chen, R. T. Q., Ben-Hamu, H., Nickel, M. (2023). *Flow Matching for Generative Modeling*. ICLR 2023.
 
-7.  **[Action Chunking / ACT]** Zhao, T. Z., Kumar, V., Levine, S., & Finn, C. (2023). *Learning Fine-Grained Bimanual Manipulation with Low-Cost Hardware*. RSS 2023.
+11.  **[Diffusion Policy]** Chi, C., Feng, S., Du, Y., Xu, Z., Cousineau, E., Burchfiel, B., & Song, S. (2023). *Diffusion Policy: Visuomotor Policy Learning via Action Diffusion*. RSS 2023.
+
+12.  **[Action Chunking / ACT]** Zhao, T. Z., Kumar, V., Levine, S., & Finn, C. (2023). *Learning Fine-Grained Bimanual Manipulation with Low-Cost Hardware*. RSS 2023.
 
 ### 对比工作
 
-8.  **[RT-2]** Brohan, A., Brown, N., Carbajal, J., Chebotar, Y., Chen, X., Choromanski, K., ... & Zitkovich, B. (2023). *RT-2: Vision-Language-Action Models Transfer Web Knowledge to Robotic Control*. arXiv:2307.15818.
+13.  **[RT-2]** Brohan, A., Brown, N., Carbajal, J., Chebotar, Y., Chen, X., Choromanski, K., ... & Zitkovich, B. (2023). *RT-2: Vision-Language-Action Models Transfer Web Knowledge to Robotic Control*. arXiv:2307.15818.
 
-9.  **[OpenVLA]** Kim, M. J., Pertsch, K., Karamcheti, S., Xiao, T., Balakrishna, A., Nair, S., ... & Finn, C. (2024). *OpenVLA: An Open-Source Vision-Language-Action Model*. arXiv:2406.09246.
+14.  **[OpenVLA]** Kim, M. J., Pertsch, K., Karamcheti, S., Xiao, T., Balakrishna, A., Nair, S., ... & Finn, C. (2024). *OpenVLA: An Open-Source Vision-Language-Action Model*. arXiv:2406.09246.
 
-10. **[Open X-Embodiment]** Open X-Embodiment Collaboration. (2024). *Open X-Embodiment: Robotic Learning Datasets and RT-X Models*. ICRA 2024.
+15. **[Open X-Embodiment]** Open X-Embodiment Collaboration. (2024). *Open X-Embodiment: Robotic Learning Datasets and RT-X Models*. ICRA 2024.
 
 ### 动作表示相关
 
-11. **[DCT in Signal Processing]** Ahmed, N., Natarajan, T., & Rao, K. R. (1974). *Discrete Cosine Transform*. IEEE Transactions on Computers, C-23(1), 90–93.
+16. **[DCT in Signal Processing]** Ahmed, N., Natarajan, T., & Rao, K. R. (1974). *Discrete Cosine Transform*. IEEE Transactions on Computers, C-23(1), 90–93.
 
-12. **[VQ-VAE]** van den Oord, A., Vinyals, O., & Kavukcuoglu, K. (2017). *Neural Discrete Representation Learning*. NeurIPS 2017.
+17. **[VQ-VAE]** van den Oord, A., Vinyals, O., & Kavukcuoglu, K. (2017). *Neural Discrete Representation Learning*. NeurIPS 2017.
+
+### 强化学习相关
+
+18. **[DAgger]** Ross, S., Gordon, G., & Bagnell, D. (2011). *A Reduction of Imitation Learning and Structured Prediction to No-Regret Online Learning*. AISTATS 2011. (复合误差问题的经典分析)
