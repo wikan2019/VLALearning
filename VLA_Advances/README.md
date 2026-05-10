@@ -49,10 +49,16 @@ VLA 是 VLM 的自然延伸——**VLM 让模型"看懂世界"，VLA 则让模�
 *   **代表模型**：OpenVLA, OpenVLA-OFT
 *   **关联阅读**：→ [23. 跨具身数据](./23_Data_Cross_Embodiment.md)（OpenVLA 的训练数据）
 
-### 22. [π0 系列：通用机器人基座模型](./22_Pi0_Generalist_Policy.md)
-*   **演进点**：从单任务策略 → 多任务泛化 → 开放世界泛化 (π0 → π0.5)
-*   **核心价值**：Physical Intelligence 的 π0 系列是目前最接近"通用机器人大脑"的模型，能在从未见过的家庭环境中完成复杂长程任务
-*   **代表模型**：π0, π0-FAST, π0.5
+### 22. [π0 系列：通用机器人基座模型（总览与导航）](./22_Pi0_Generalist_Policy.md)
+*   **演进点**：从单任务策略 → 多任务泛化 → 开放世界泛化 → RL自主改进 → 组合泛化涌现
+*   **核心价值**：Physical Intelligence 的 π0 系列是目前最接近"通用机器人大脑"的模型，从 2024 到 2026 走过了"能动→快速→泛化→鲁棒→通用"的完整演进路径
+*   **代表模型**：π0, π0-FAST, π0.5, π0.6/π\*0.6, π0.7
+*   **子篇文章**：
+    * [22a. π0 基座模型](./22a_Pi0_Base_Model.md) — Flow Matching 动作头、三阶段训练
+    * [22b. π0-FAST](./22b_Pi0_FAST.md) — 频域动作编码、5x 推理加速
+    * [22c. π0.5 开放世界](./22c_Pi0_5_Open_World.md) — 知识隔离、异构数据混合训练
+    * [22d. π0.6/π\*0.6 经验学习](./22d_Pi0_6_Learning_From_Experience.md) — Gemma3 4B 升级、Recap RL
+    * [22e. π0.7 可操控模型](./22e_Pi0_7_Steerable_Model.md) — 多模态 Prompt、组合泛化涌现
 *   **关联阅读**：→ [24. 世界模型](./24_World_Models_Planning.md), → [27. SOTA 对比](./27_VLA_SOTA_Review.md)
 
 ## Part 5: VLA 关键技术 (VLA Key Technologies)
