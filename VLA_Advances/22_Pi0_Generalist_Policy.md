@@ -21,6 +21,7 @@
 | **22c** | π0.5 (2025.04) | 开放世界泛化：知识隔离、异构数据混合训练、高层-低层决策解耦 | [22c_Pi0_5_Open_World.md](./22c_Pi0_5_Open_World.md) |
 | **22d** | π0.6 / π\*0.6 (2025.11) | 从经验中学习：Gemma3 4B 升级、Recap RL、价值函数+优势条件化策略 | [22d_Pi0_6_Learning_From_Experience.md](./22d_Pi0_6_Learning_From_Experience.md) |
 | **22e** | π0.7 (2026.04) | 组合泛化涌现：多模态 Prompt 框架、跨本体迁移、单模型≥多专家 | [22e_Pi0_7_Steerable_Model.md](./22e_Pi0_7_Steerable_Model.md) |
+| **22f** | 部署实践 FAQ | 显卡需求、量化、云端推理、机械臂组装、数据采集、工业应用 | [22f_Pi0_Deployment_FAQ.md](./22f_Pi0_Deployment_FAQ.md) |
 
 ---
 
