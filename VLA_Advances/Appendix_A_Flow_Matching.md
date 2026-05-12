@@ -62,22 +62,80 @@ Flow Matching 的路径（接近直线）:
 
 在数学中，**流**是一个随时间变化的映射，将点从一个位置"搬运"到另一个位置。
 
-**定义**：流 \( \phi_t: \mathbb{R}^d \to \mathbb{R}^d \) 是一族参数为时间 \( t \in [0, 1] \) 的微分同胚（可逆、光滑的映射），满足：
+**定义**：流 $\phi_t: \mathbb{R}^d \to \mathbb{R}^d$ 是一族参数为时间 $t \in [0, 1]$ 的微分同胚（可逆、光滑的映射），满足：
+
+**常微分方程 (ODE)**：
+
+$$\frac{dx}{dt} = v_t(x)$$
+
+其中 $v_t$ 是速度场 (velocity field)。
+
+**初始条件与解**：
+
+$$x(0) = x_0 \sim p_0 \quad \text{(t=0 时从噪声分布出发)}$$
+
+$$x(1) \sim p_1 \quad \text{(t=1 时到达数据分布)}$$
+
+$$\phi_t(x_0) = x_0 + \int_0^t v_s(\phi_s(x_0)) \, ds$$
+
+**直觉理解**：想象一大群粒子，每个粒子代表一个样本。速度场 $v_t$ 告诉每个粒子在每个时刻该往哪个方向移动、移动多快。当所有粒子按照速度场流动，它们会从噪声分布"流向"数据分布。
+
+> **深入理解 $\phi_t$ 函数**
+>
+> $\phi_t(x_0)$ 回答的问题是：**一个从 $x_0$ 出发的粒子，经过时间 $t$ 后，走到了哪里？**
+>
+> 拆解公式 $\phi_t(x_0) = x_0 + \int_0^t v_s(\phi_s(x_0)) \, ds$：
+> - $x_0$：粒子的**起点**（初始位置）
+> - $v_s(\cdot)$：在时刻 $s$、位置 $\cdot$ 处的**速度场**（告诉粒子该往哪走、走多快）
+> - $\phi_s(x_0)$：粒子在时刻 $s$ 的**实时位置**（递归定义——速度取决于当前位置，当前位置又取决于之前的速度）
+> - $\int_0^t$：把从 0 到 $t$ 每个瞬间的速度**累加**起来
+>
+> 整个公式就是说：**终点 = 起点 + 沿途所有速度的累积**。
+
+**类比：河流中的落叶。** 想象一条蜿蜒的河流，水面各处的水流方向和速度不同：
 
 ```
-常微分方程 (ODE):
+河流速度场 v_s(位置):
+  河中央: 向下游 2m/s
+  河岸边: 向下游 0.5m/s
+  弯道处: 向侧面偏转
 
-  dx/dt = v_t(x)          ← v_t 是速度场 (velocity field)
+一片落叶掉在位置 x₀ = 河中央:
+  t=0s:  φ₀(x₀) = x₀                    ← 还在原地
+  t=1s:  φ₁(x₀) = x₀ + 约 2m (下游)      ← 被河中央的快流冲了 2m
+  t=2s:  φ₂(x₀) = x₀ + 约 4m             ← 如果还在中央，继续快
+  
+  但如果落叶在 t=1s 时漂到了河岸边:
+  t=2s:  φ₂(x₀) = φ₁(x₀) + 约 0.5m      ← 速度变慢了！
+         因为 v₂(φ₂处的位置) = 0.5m/s (岸边)
 
-初始条件:
-  x(0) = x₀ ~ p₀         ← t=0 时从噪声分布出发
-  x(1) ~ p₁               ← t=1 时到达数据分布
-
-解:
-  φ_t(x₀) = x₀ + ∫₀ᵗ v_s(φ_s(x₀)) ds
+关键: 落叶在每一刻的速度，取决于它当时所在位置的水流
+     → v_s(φ_s(x₀)) 中嵌套的含义: 速度场在"粒子当前位置"处取值
 ```
 
-**直觉理解**：想象一大群粒子，每个粒子代表一个样本。速度场 \( v_t \) 告诉每个粒子在每个时刻该往哪个方向移动、移动多快。当所有粒子按照速度场流动，它们会从噪声分布"流向"数据分布。
+**在 Flow Matching 中的实际含义：**
+
+```
+  x₀ ~ N(0,I)  = 一团噪声 (比如 [0.73, -1.2, 0.05, ...] 共 350 维)
+  x₁            = 一条真实的机器人动作轨迹
+
+  φ_t(x₀) = 噪声 x₀ 在速度场驱动下，经过时间 t 后变成的样子
+
+  t=0.0:  φ₀(x₀) = x₀           ← 纯噪声，毫无意义
+  t=0.3:  φ₀.₃(x₀) = 略有结构    ← 开始有点像动作
+  t=0.7:  φ₀.₇(x₀) = 大致成型    ← 能看出是在"抓杯子"
+  t=1.0:  φ₁(x₀) ≈ x₁           ← 变成了一条完整的抓杯子轨迹
+
+  每一步 φ_t 都是同一个噪声粒子在速度场中的位置快照
+  整条轨迹 {φ_t(x₀)} (t ∈ [0,1]) 就是这个粒子从噪声"流向"真实动作的完整路线
+```
+
+**为什么需要积分（多步推理）而不能一步到位？** 因为速度场 $v_s$ 是**位置相关的**——你在不同位置看到的"方向指示"不同。你必须一步步走，每走一步就根据新位置查询新的方向。这就是为什么推理时需要 10 步 Euler 积分，而不是一步到位。
+
+```
+不能一步到位:   φ₁(x₀) ≠ x₀ + 1.0 · v₀(x₀)   ← 只用起点速度走一大步，会偏
+实际做法:       分 10 小步，每步查询当前位置的速度 ← Euler 积分
+```
 
 ```
 t=0 (噪声分布)              t=0.5 (中间状态)              t=1 (数据分布)
@@ -96,27 +154,77 @@ t=0 (噪声分布)              t=0.5 (中间状态)              t=1 (数据分
 
 CNF 是流的神经网络参数化版本：
 
-```
-CNF 定义:
+**CNF 定义**：
 
-  dx/dt = v_θ(x, t)       ← v_θ 是神经网络参数化的速度场
+$$\frac{dx}{dt} = v_\theta(x, t)$$
 
-  其中 θ 是可学习参数
-
-目标: 找到 θ 使得流 φ_t 将 p₀ (噪声) 映射到 p₁ (数据)
-      即: (φ₁)_#p₀ = p_data
-```
+其中 $\theta$ 是可学习参数。目标：找到 $\theta$ 使得流 $\phi_t$ 将 $p_0$ (噪声) 映射到 $p_1$ (数据)，即 $(\phi_1)_\# p_0 = p_{\text{data}}$。
 
 **概率密度的变化**遵循连续性方程（类似流体力学）：
 
-```
-连续性方程:
+$$\frac{\partial p_t}{\partial t} + \nabla \cdot (p_t \cdot v_t) = 0$$
 
-  ∂p_t/∂t + ∇·(p_t · v_t) = 0
+> **连续性方程的详细解释**
+>
+> 这个方程是 Flow Matching 的理论基石之一，它保证了"从噪声到数据"的流变换在概率意义上是合法的。下面逐项拆解。
+>
+> **三个组成部分**：
+>
+> | 项 | 含义 | 直觉 |
+> |:---|:---|:---|
+> | $\frac{\partial p_t}{\partial t}$ | 概率密度在某个固定位置 $x$ 处随时间的变化率 | "这个位置的粒子是变多了还是变少了？" |
+> | $\nabla \cdot (p_t \cdot v_t)$ | 概率通量的散度——粒子在速度场驱动下流入/流出某个区域的净速率 | "粒子是净流入还是净流出这个区域？" |
+> | $= 0$ | 两者之和为零——概率守恒 | "粒子不会凭空产生或消失" |
+>
+> **类比 1：交通流量守恒**
+>
+> 把 $p_t(x)$ 想象成城市某条路段 $x$ 在时刻 $t$ 的车辆密度：
+> - 如果某路段车辆密度增加（$\frac{\partial p_t}{\partial t} > 0$），一定是因为流入的车比流出的多（$\nabla \cdot (p_t \cdot v_t) < 0$，净流入）
+> - 如果某路段车辆密度减少，一定是因为流出的车比流入的多
+> - 车不会凭空出现或消失（没有"传送门"），所以两项之和为零
+>
+> **类比 2：水流中的墨水**
+>
+> 在流动的水中滴一滴墨水，墨水会被水流带走。连续性方程描述的是：在任意一个观察点，墨水浓度的变化完全由水流的搬运决定：
+> - 水流把墨水从上游带来 → 浓度升高
+> - 水流把墨水冲向下游 → 浓度降低
+> - 墨水总量守恒（不蒸发、不生成）
 
-含义: 概率守恒 —— 粒子不会凭空产生或消失
-      只是在速度场的驱动下从一个区域"流"到另一个区域
-```
+> **在 Flow Matching 中的意义**
+>
+> 连续性方程保证了：当我们用速度场 $v_t$ 把大量噪声粒子 $x_0 \sim \mathcal{N}(0, I)$ "搬运"到目标位置时，整个过程中概率质量是守恒的。
+>
+> ```
+> t=0:   p₀ = N(0, I)                  ← 均匀散布的噪声粒子
+>        某区域 A 内有 30% 的粒子
+>
+> t=0.5: 速度场把粒子向数据集中的区域推
+>        区域 A 内的粒子被推走一部分 → p(A) 减少
+>        数据密集区域 B 有粒子涌入 → p(B) 增加
+>        但 p(A) + p(B) + ... = 1      ← 总概率守恒
+>
+> t=1:   p₁ ≈ p_data                   ← 粒子聚集到数据分布
+>        所有概率质量都被合法地"搬运"到了正确位置
+> ```
+>
+> 如果没有这个约束，速度场可能把 90% 的概率质量搬到某一个点，剩下 10% 丢掉——这会导致生成的样本高度集中（mode collapse）或概率不归一（不是合法的分布）。
+>
+> **散度 $\nabla \cdot$ 的直觉**
+>
+> 散度衡量的是"一个点的速度场是向外扩散还是向内汇聚"：
+> - $\nabla \cdot v > 0$（正散度）：速度场从该点向外发散 → 粒子被推走 → 密度下降
+> - $\nabla \cdot v < 0$（负散度）：速度场向该点汇聚 → 粒子被吸引来 → 密度升高
+> - $\nabla \cdot v = 0$：速度场只是"路过"该点，流入 = 流出 → 密度不变
+>
+> ```
+> 正散度 (粒子被推散):      负散度 (粒子被吸引):      零散度 (粒子路过):
+>
+>       ↗                        ↘  ↙                      →  →
+>  ← · →                         · ↑                      →  →
+>       ↘                        ↗  ↖                      →  →
+>
+> 密度在此点下降              密度在此点升高              密度在此点不变
+> ```
 
 ---
 
@@ -124,47 +232,40 @@ CNF 定义:
 
 ### (a) 总体框架
 
-Flow Matching 的训练目标是：**让神经网络 \( v_\theta(x, t) \) 拟合一个已知的目标速度场 \( u_t(x) \)**
+Flow Matching 的训练目标是：**让神经网络 $v_\theta(x, t)$ 拟合一个已知的目标速度场 $u_t(x)$**
 
-```
-Flow Matching 损失:
+**Flow Matching 损失**：
 
-  L_FM(θ) = E_{t~U[0,1], x~p_t} [ ||v_θ(x, t) - u_t(x)||² ]
+$$\mathcal{L}_{\text{FM}}(\theta) = \mathbb{E}_{t \sim U[0,1],\, x \sim p_t} \left[ \| v_\theta(x, t) - u_t(x) \|^2 \right]$$
 
-  其中:
-    t ~ U[0, 1]        : 时间均匀采样
-    x ~ p_t             : 从 t 时刻的分布中采样
-    u_t(x)              : 目标速度场（已知的理想速度场）
-    v_θ(x, t)           : 神经网络预测的速度场
-```
+其中：
+- $t \sim U[0, 1]$：时间均匀采样
+- $x \sim p_t$：从 $t$ 时刻的分布中采样
+- $u_t(x)$：目标速度场（已知的理想速度场）
+- $v_\theta(x, t)$：神经网络预测的速度场
 
-**问题**：目标速度场 \( u_t(x) \) 和边际分布 \( p_t \) 是无法直接计算的——它们依赖于整个数据集的全局信息。
+**问题**：目标速度场 $u_t(x)$ 和边际分布 $p_t$ 是无法直接计算的——它们依赖于整个数据集的全局信息。
 
 ### (b) 条件 Flow Matching (CFM)：关键突破
 
 **Conditional Flow Matching** 通过"条件化"解决了上述问题——不看全局，只看**以单个数据点为条件**的局部速度场。
 
-```
-条件 Flow Matching 损失:
+**条件 Flow Matching 损失**：
 
-  L_CFM(θ) = E_{t~U[0,1], x₁~p_data, x~p_t(·|x₁)} [ ||v_θ(x, t) - u_t(x|x₁)||² ]
+$$\mathcal{L}_{\text{CFM}}(\theta) = \mathbb{E}_{t \sim U[0,1],\, x_1 \sim p_{\text{data}},\, x \sim p_t(\cdot | x_1)} \left[ \| v_\theta(x, t) - u_t(x \mid x_1) \|^2 \right]$$
 
-  其中:
-    x₁ ~ p_data          : 从训练集采样一个真实数据点
-    p_t(x|x₁)            : 以 x₁ 为条件的概率路径
-    u_t(x|x₁)            : 以 x₁ 为条件的速度场（可以解析计算！）
-```
+其中：
+- $x_1 \sim p_{\text{data}}$：从训练集采样一个真实数据点
+- $p_t(x \mid x_1)$：以 $x_1$ 为条件的概率路径
+- $u_t(x \mid x_1)$：以 $x_1$ 为条件的速度场（可以解析计算！）
 
 **关键定理（Lipman et al., 2023）**：
 
-```
-定理: L_CFM(θ) 与 L_FM(θ) 具有相同的梯度
-
-  ∇_θ L_CFM(θ) = ∇_θ L_FM(θ)
-
-证明直觉: 对所有条件 x₁ 取期望后，条件速度场恢复为边际速度场
-          因此优化 L_CFM 等价于优化 L_FM
-```
+> $\mathcal{L}_{\text{CFM}}(\theta)$ 与 $\mathcal{L}_{\text{FM}}(\theta)$ 具有相同的梯度：
+>
+> $$\nabla_\theta \mathcal{L}_{\text{CFM}}(\theta) = \nabla_\theta \mathcal{L}_{\text{FM}}(\theta)$$
+>
+> **证明直觉**：对所有条件 $x_1$ 取期望后，条件速度场恢复为边际速度场，因此优化 $\mathcal{L}_{\text{CFM}}$ 等价于优化 $\mathcal{L}_{\text{FM}}$。
 
 这意味着：**我们可以用简单的条件速度场来训练，但得到的模型能拟合全局速度场！**
 
@@ -172,37 +273,37 @@ Flow Matching 损失:
 
 最常用的概率路径是**线性插值路径（Optimal Transport 路径）**：
 
-```
-线性插值路径:
+**线性插值路径**：
 
-  p_t(x|x₁) = N(x; μ_t(x₁), σ_t²I)
+$$p_t(x \mid x_1) = \mathcal{N}(x;\, \mu_t(x_1),\, \sigma_t^2 I)$$
 
-  其中:
-    μ_t(x₁) = t · x₁              ← 均值从 0 线性移到 x₁
-    σ_t = 1 - (1-σ_min) · t       ← 方差从 1 线性缩小到 σ_min ≈ 0
+其中：
 
-采样方式:
-  x = μ_t(x₁) + σ_t · ε,   ε ~ N(0, I)
-  x = t · x₁ + (1-(1-σ_min)·t) · ε
+$$\mu_t(x_1) = t \cdot x_1 \quad \text{(均值从 0 线性移到 } x_1\text{)}$$
 
-简化版 (σ_min → 0):
-  x_t = t · x₁ + (1-t) · x₀
-  其中 x₀ ~ N(0, I) (噪声), x₁ ~ p_data (数据)
-```
+$$\sigma_t = 1 - (1-\sigma_{\min}) \cdot t \quad \text{(方差从 1 线性缩小到 } \sigma_{\min} \approx 0\text{)}$$
+
+**采样方式**：
+
+$$x = \mu_t(x_1) + \sigma_t \cdot \varepsilon, \quad \varepsilon \sim \mathcal{N}(0, I)$$
+
+简化版（$\sigma_{\min} \to 0$）：
+
+$$x_t = t \cdot x_1 + (1-t) \cdot x_0, \quad x_0 \sim \mathcal{N}(0, I),\; x_1 \sim p_{\text{data}}$$
 
 **对应的条件速度场：**
 
-```
-u_t(x|x₁) = (x₁ - (1-σ_min)·x) / (1-(1-σ_min)·t)
+$$u_t(x \mid x_1) = \frac{x_1 - (1-\sigma_{\min}) \cdot x}{1 - (1-\sigma_{\min}) \cdot t}$$
 
-简化版 (σ_min → 0):
-  u_t(x|x₁) = (x₁ - x) / (1-t)
+简化版（$\sigma_{\min} \to 0$）：
 
-更简洁的表达:
-  u_t(x_t|x₁) = x₁ - x₀ = x₁ - ε
+$$u_t(x \mid x_1) = \frac{x_1 - x}{1 - t}$$
 
-  即: 速度场就是 "数据减去噪声" 的方向！
-```
+更简洁的表达：
+
+$$u_t(x_t \mid x_1) = x_1 - x_0 = x_1 - \varepsilon$$
+
+即：**速度场就是"数据减去噪声"的方向！**
 
 ---
 
@@ -651,20 +752,17 @@ x₀ ~ N(0,I)                         x₀ ~ N(0,I)
 
 **OT 的数学定义**：
 
-```
-Optimal Transport 问题:
+$$\min_{\gamma \in \Gamma(p_0, p_1)} \mathbb{E}_{(x_0, x_1) \sim \gamma} \left[ \| x_0 - x_1 \|^2 \right]$$
 
-  min_{γ ∈ Γ(p₀, p₁)} E_{(x₀,x₁)~γ} [ ||x₀ - x₁||² ]
+其中：
+- $p_0 = \mathcal{N}(0, I)$：噪声分布
+- $p_1 = p_{\text{data}}$：数据分布
+- $\Gamma(p_0, p_1)$：所有边际分布为 $p_0$ 和 $p_1$ 的联合分布
+- $\gamma$：传输方案（谁搬到哪里）
 
-  其中:
-    p₀ = N(0, I)         : 噪声分布
-    p₁ = p_data           : 数据分布
-    Γ(p₀, p₁)            : 所有边际分布为 p₀ 和 p₁ 的联合分布
-    γ                      : 传输方案（谁搬到哪里）
+**OT 路径的线性插值**：
 
-OT 路径的线性插值:
-  x_t = (1-t) · x₀ + t · x₁    ← 在 OT 耦合 (x₀, x₁) 下的线性插值
-```
+$$x_t = (1-t) \cdot x_0 + t \cdot x_1 \quad \text{(在 OT 耦合 } (x_0, x_1) \text{ 下的线性插值)}$$
 
 ### (b) OT 路径带来的好处
 
@@ -760,35 +858,95 @@ VLM 骨干网络处理视觉和语言输入，生成条件特征 h:
 
 **Step 2: 训练时的 Flow Matching**
 
-```
-训练损失:
+**训练损失**：
 
-  L_FM = E_{a₁~p_data, a₀~N(0,I), t~U[0,1]} [ ||v_θ(a_t, t, h) - (a₁ - a₀)||² ]
+$$\mathcal{L}_{\text{FM}} = \mathbb{E}_{a_1 \sim p_{\text{data}},\, a_0 \sim \mathcal{N}(0,I),\, t \sim U[0,1]} \left[ \| v_\theta(a_t, t, h) - (a_1 - a_0) \|^2 \right]$$
 
-  其中:
-    a₁ = 真实动作 (人类演示中的动作 chunk)
-    a₀ = 高斯噪声
-    a_t = (1-t)·a₀ + t·a₁     ← 线性插值
-    h = VLM 的条件特征
-    v_θ = Action Expert 预测的速度场
-```
+其中：
+- $a_1$：真实动作（人类演示中的动作 chunk）
+- $a_0$：高斯噪声
+- $a_t = (1-t) \cdot a_0 + t \cdot a_1$：线性插值
+- $h$：VLM 的条件特征
+- $v_\theta$：Action Expert 预测的速度场
 
 **Step 3: 推理时的动作生成**
 
-```
-推理流程（N=10 步 Euler 积分）:
+推理流程（$N=10$ 步 Euler 积分）：
 
-  a₀ ~ N(0, I)                    ← 从纯噪声开始
-  
-  for k = 0, 1, ..., 9:
-    t = k / 10
-    v = v_θ(a_k, t, h)            ← Action Expert 预测速度
-    a_{k+1} = a_k + 0.1 · v       ← Euler 步进
+$$a_0 \sim \mathcal{N}(0, I) \quad \text{(从纯噪声开始)}$$
 
-  输出: a₁₀ ≈ [未来 50 步动作]    ← 高精度连续动作 chunk
-```
+$$\text{for } k = 0, 1, \ldots, 9: \quad a_{k+1} = a_k + 0.1 \cdot v_\theta(a_k,\, k/10,\, h)$$
+
+$$\text{输出: } a_{10} \approx [\text{未来 50 步动作}] \quad \text{(高精度连续动作 chunk)}$$
 
 ### (c) π0 中 Action Expert 的设计
+
+> **图：π0 VLA Flow Matching 整体架构**
+
+```mermaid
+graph TB
+    subgraph 输入层["① 输入层"]
+        IMG["📷 多视角图像<br/>(腕部 + 基座)"]
+        TXT["💬 语言指令<br/>'把杯子放到左边'"]
+        PROP["🦾 本体感受<br/>(关节角度/速度)"]
+    end
+
+    subgraph 编码层["② Token 编码"]
+        VIT["SigLIP ViT-SO400M<br/>~400M 参数<br/>输出: 视觉 Token 序列"]
+        TOK["Text Tokenizer<br/>输出: 文本 Token 序列"]
+        MLP_P["MLP 编码器<br/>输出: 本体感受 Token"]
+    end
+
+    subgraph VLM["③ VLM Backbone (Gemma 2B/4B)"]
+        direction TB
+        ATT1["Transformer Layer 1<br/>Self-Attention + FFN_shared"]
+        ATT2["Transformer Layer 2<br/>Self-Attention + FFN_shared"]
+        DOTS["⋮ (共 ~26 层)"]
+        ATTN["Transformer Layer N<br/>Self-Attention + FFN_shared"]
+    end
+
+    subgraph AE["④ Action Expert (Flow Matching 速度场网络)"]
+        direction TB
+        NOISE["噪声动作 Token<br/>a_t ∈ ℝ^(50×7)<br/>+ 时间嵌入 t"]
+        CROSS["Cross-Attention<br/>Query: 动作 Token<br/>Key/Value: VLM 特征 h"]
+        FFN_A["FFN_action<br/>~860M 参数<br/>(独立于 FFN_shared)"]
+        VOUT["速度预测 v_θ(a_t, t, h)<br/>∈ ℝ^(50×7)"]
+    end
+
+    subgraph FM["⑤ Flow Matching 迭代去噪"]
+        direction LR
+        S0["a₀ ~ N(0,I)<br/>纯噪声"]
+        S1["a₁ = a₀ + 0.1·v"]
+        S2["a₂ = a₁ + 0.1·v"]
+        SD["⋯"]
+        S10["a₁₀ ≈ 真实动作<br/>Action Chunk"]
+    end
+
+    OUT["🎯 输出: Action Chunk<br/>[Δx,Δy,Δz,Δroll,Δpitch,Δyaw,grip] × 50步<br/>= 2.5 秒的连续动作轨迹"]
+
+    IMG --> VIT
+    TXT --> TOK
+    PROP --> MLP_P
+    VIT --> ATT1
+    TOK --> ATT1
+    MLP_P --> ATT1
+    ATT1 --> ATT2
+    ATT2 --> DOTS
+    DOTS --> ATTN
+    ATTN -->|"条件特征 h"| CROSS
+    NOISE --> CROSS
+    CROSS --> FFN_A
+    FFN_A --> VOUT
+    VOUT -->|"每步更新 a"| FM
+    S0 --> S1 --> S2 --> SD --> S10
+    S10 --> OUT
+
+    style 输入层 fill:#e8f4f8,stroke:#2196F3
+    style 编码层 fill:#e8f5e9,stroke:#4CAF50
+    style VLM fill:#fff3e0,stroke:#FF9800
+    style AE fill:#fce4ec,stroke:#E91E63
+    style FM fill:#f3e5f5,stroke:#9C27B0
+```
 
 π0 的一个关键创新是 **Action Expert**——在 VLM 的 Transformer 中插入专门处理动作的额外参数：
 
@@ -809,6 +967,189 @@ VLM 骨干网络处理视觉和语言输入，生成条件特征 h:
   ② 但动作的表示空间与语言截然不同（需要专门的FFN）
   ③ 类似 MoE：共享注意力，但使用不同的FFN专家
 ```
+
+#### 混合层的两条路径详解
+
+> **图：π0 Transformer 混合层——语义路径 vs 动作路径**
+
+```mermaid
+graph LR
+    subgraph 单层内部["Transformer 单层内部结构 (混合层)"]
+        direction TB
+        
+        subgraph 语义路径["语义路径 (处理视觉+文本)"]
+            VT["视觉 Token + 文本 Token"]
+            SA["Self-Attention<br/>(标准 Causal)"]
+            FFN_S["FFN_shared<br/>(VLM 原有参数)"]
+            H["条件特征 h"]
+        end
+
+        subgraph 动作路径["动作路径 (Action Expert)"]
+            AT["噪声动作 Token a_t<br/>+ 本体感受 Token<br/>+ 时间嵌入 embed(t)"]
+            CA["Cross-Attention<br/>Q = 动作 Token<br/>K,V = 视觉+文本 Token"]
+            FFN_ACT["FFN_action<br/>(Action Expert 独有参数)<br/>与 FFN_shared 结构相同<br/>但权重完全独立"]
+            AO["更新后的动作 Token"]
+        end
+    end
+
+    VT --> SA --> FFN_S --> H
+    AT --> CA
+    H -.->|"Key, Value"| CA
+    CA --> FFN_ACT --> AO
+
+    style 语义路径 fill:#fff3e0,stroke:#FF9800
+    style 动作路径 fill:#fce4ec,stroke:#E91E63
+```
+
+每一个 Transformer 层内部有**两条并行路径**，处理不同类型的 Token：
+
+**语义路径（VLM 原有参数）**：
+- 输入：视觉 Token（SigLIP 编码的图像 patch）+ 文本 Token（语言指令）
+- 操作：标准 Self-Attention → FFN_shared
+- 输出：条件特征 $h$——编码了"当前看到什么 + 需要做什么"的语义信息
+- 参数来源：VLM 预训练的原有权重
+
+**动作路径（Action Expert 独有参数）**：
+- 输入：噪声动作 Token $a_t$（形状 `[50, 7]` 展平后的嵌入）+ 本体感受 Token（当前关节角度/速度）+ 时间嵌入 $\text{embed}(t)$
+- 操作：**Cross-Attention**（$Q = a_t$，$K, V = h$）→ FFN_action
+- 输出：速度预测 $v_\theta(a_t, t, h)$
+- 参数来源：**完全独立的 ~860M 额外参数**（不与语义路径共享 FFN）
+
+#### Cross-Attention 的含义
+
+在 Cross-Attention 中，动作 Token 作为 **Query** "询问"视觉/语言 Token（Key/Value）：
+
+```
+Cross-Attention 工作方式:
+
+  Query (来自动作路径):  "我当前是一个噪声动作，需要知道场景信息来修正自己"
+  Key, Value (来自语义路径): "杯子在桌面右侧 15cm 处，指令是'拿起杯子'"
+
+  注意力权重:
+    α = softmax(Q · K^T / √d)
+    → 动作 Token 对"杯子位置"的视觉 Token 给予高注意力
+    → 对"桌子纹理"等无关 Token 给予低注意力
+
+  输出:
+    CrossAttn(Q, K, V) = α · V
+    → 动作 Token 融合了与任务最相关的视觉-语义信息
+```
+
+这种设计的优势是：VLM 的**完整语义表征**（数百个 Token）直接通过 Cross-Attention 流入动作生成过程，而不是被压缩成一个固定长度的向量。动作 Token 可以有选择地关注场景中最相关的部分。
+
+#### 为什么 FFN 必须分开？
+
+```
+如果共享 FFN（错误做法）:
+  语言 Token "杯子"  → 同一个 FFN → 语义表征更新
+  动作 Token [0.05m] → 同一个 FFN → 运动学表征更新
+  → 两种差异极大的信号用同一组参数变换
+  → 网络"精神分裂"：优化语义损害动作，优化动作损害语义
+
+分开 FFN（π0 的做法，类似 MoE）:
+  语言 Token "杯子"  → FFN_shared → 语义表征更新
+  动作 Token [0.05m] → FFN_action → 运动学表征更新
+  → 注意力机制共享（获取上下文），但非线性变换各自独立
+  → 类比：两个人看同一个场景（共享感知），但各自做不同的事（专家分工）
+```
+
+#### 参数分布（π0.6）
+
+```
+Transformer 单层内部:
+  Self-Attention (共享):   ~80M   ← 语义路径和动作路径共用的注意力矩阵
+  FFN_shared:              ~120M  ← 仅语义路径使用
+  FFN_action:              ~35M   ← 仅动作路径使用 (Action Expert 的主体)
+  
+全模型:
+  SigLIP ViT:              ~400M  (7.5%)
+  Gemma3 Self-Attention:   ~1,600M (30%)
+  Gemma3 FFN_shared:       ~2,400M (45%)   ← VLM 原有参数
+  FFN_action (所有层):     ~860M  (16%)    ← Action Expert 独有参数
+  Projector/Adapter:       ~40M   (1%)
+  总计:                    ~5,300M ≈ 5.3B
+```
+
+### (c.2) 推理时序与优化细节
+
+> **图：π0 推理时序——从观测到动作执行**
+
+```mermaid
+sequenceDiagram
+    participant ENV as 🌍 环境
+    participant VLM as 🧠 VLM Backbone
+    participant AE as 🎯 Action Expert
+    participant ROBOT as 🦾 机器人
+
+    ENV->>VLM: 多视角图像 + 语言指令 + 本体感受
+    Note over VLM: ① 编码: SigLIP + Tokenizer + MLP
+    Note over VLM: ② Self-Attention × N层
+    VLM->>VLM: 生成条件特征 h (可缓存)
+
+    rect rgb(243, 229, 245)
+        Note over AE: ③ Flow Matching 迭代去噪 (10步)
+        AE->>AE: a₀ ~ N(0, I) 采样纯噪声
+        
+        loop k = 0, 1, ..., 9
+            AE->>VLM: 用 a_k 作为 Query
+            VLM-->>AE: Cross-Attention(Q=a_k, KV=h)
+            AE->>AE: v = FFN_action(cross_attn_output)
+            AE->>AE: a_{k+1} = a_k + 0.1 · v
+        end
+        
+        AE->>AE: a₁₀ = Action Chunk [50步 × 7维]
+    end
+
+    AE->>ROBOT: 发送 Action Chunk (2.5秒轨迹)
+    
+    loop 以 50Hz 执行 50 步
+        ROBOT->>ROBOT: 执行 a[i] = [Δx,Δy,Δz,Δr,Δp,Δy,grip]
+    end
+    
+    ROBOT->>ENV: 2.5秒后重新观测
+    Note over ENV,ROBOT: 循环: 新观测 → VLM → Flow Matching → 执行
+```
+
+**完整推理时序**：
+
+1. **环境观测**：摄像头拍到多视角图像，读取关节角度/速度
+2. **VLM 前向（仅 1 次）**：SigLIP 编码图像 → Gemma 处理视觉+文本 Token → 生成条件特征 $h$
+3. **Flow Matching 去噪（10 步）**：
+   - 采样纯噪声 $a_0 \sim \mathcal{N}(0, I)$，形状 `[50, 7]`（50 步 × 7 维动作）
+   - 循环 10 次：$a_k$ 作为 Query 与 $h$ 做 Cross-Attention → FFN_action 输出速度 $v$ → $a_{k+1} = a_k + 0.1 \cdot v$
+   - 得到 $a_{10}$ = 50 步的 Action Chunk
+4. **执行**：以 20-50Hz 依次执行 50 步动作（约 2.5 秒）
+5. **循环**：2.5 秒后重新观测，回到步骤 1
+
+**关键优化：$h$ 缓存**
+
+条件特征 $h$ 在 10 步去噪中保持不变（场景在 ~40ms 内不会变化），因此 VLM 骨干的 Self-Attention **只需前向 1 次**。10 步循环中只重复 Cross-Attention + FFN_action 部分：
+
+```
+推理延迟分解 (A100 GPU):
+  VLM 前向 (1 次):         ~15ms     ← 包含 SigLIP + Gemma Self-Attention
+  Cross-Attn + FFN_action: ~2.5ms/步 ← 10 步 = ~25ms
+  总计:                    ~40ms     ← 满足 >10Hz 实时要求
+
+如果不缓存 h (每步都重新前向 VLM):
+  总计:                    ~15ms × 10 + ~25ms = ~175ms  ← 太慢
+```
+
+### (c.3) 训练 vs 推理的关键差异
+
+```
+推理: 从噪声 a₀ 出发，迭代 10 步得到 a₁₀（不知道真实答案）
+      → 需要展开完整的 10 步 Euler 积分链
+      → 每步都要做 Cross-Attention + FFN_action
+
+训练: 已知真实动作 a₁，随机采样 t ∈ [0,1] 和噪声 a₀
+      → 构造中间状态: a_t = (1-t)·a₀ + t·a₁
+      → 只做一次前向，预测速度 v_θ(a_t, t, h)
+      → 与目标 (a₁ - a₀) 计算 MSE 损失
+      → 不需要迭代 10 步！训练效率远高于推理
+```
+
+这意味着训练时每个 batch 只需**一次前向 + 一次反向传播**，不需要展开完整的 10 步去噪链。这也是 Flow Matching 相比 DDPM 的训练优势之一——DDPM 的某些变体需要在反向传播中展开多步去噪。
 
 ### (d) 为什么 Flow Matching 特别适合 VLA？
 
@@ -847,39 +1188,40 @@ VLM 骨干网络处理视觉和语言输入，生成条件特征 h:
 
 | 符号 | 含义 |
 | :--- | :--- |
-| \( x_0 \) | 噪声样本，\( x_0 \sim p_0 = \mathcal{N}(0, I) \) |
-| \( x_1 \) | 数据样本，\( x_1 \sim p_1 = p_{\text{data}} \) |
-| \( x_t \) | 时间 \( t \) 处的中间状态 |
-| \( v_\theta(x, t) \) | 神经网络参数化的速度场 |
-| \( u_t(x) \) | 目标边际速度场 |
-| \( u_t(x \| x_1) \) | 以 \( x_1 \) 为条件的目标速度场 |
-| \( p_t \) | 时间 \( t \) 处的边际概率密度 |
-| \( \phi_t \) | 流映射（ODE 的解） |
+| $x_0$ | 噪声样本，$x_0 \sim p_0 = \mathcal{N}(0, I)$ |
+| $x_1$ | 数据样本，$x_1 \sim p_1 = p_{\text{data}}$ |
+| $x_t$ | 时间 $t$ 处的中间状态 |
+| $v_\theta(x, t)$ | 神经网络参数化的速度场 |
+| $u_t(x)$ | 目标边际速度场 |
+| $u_t(x \mid x_1)$ | 以 $x_1$ 为条件的目标速度场 |
+| $p_t$ | 时间 $t$ 处的边际概率密度 |
+| $\phi_t$ | 流映射（ODE 的解） |
 
 ### (b) 核心公式一览
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│  1. 线性插值路径                                             │
-│     x_t = (1-t)·x₀ + t·x₁,    t ∈ [0, 1]                  │
-│                                                              │
-│  2. 条件速度场                                               │
-│     u_t(x_t|x₁) = x₁ - x₀                                  │
-│                                                              │
-│  3. CFM 训练损失                                             │
-│     L = E_{t,x₀,x₁} [ ||v_θ(x_t, t) - (x₁ - x₀)||² ]    │
-│                                                              │
-│  4. ODE 积分 (推理)                                          │
-│     x_{k+1} = x_k + Δt · v_θ(x_k, t_k)                     │
-│                                                              │
-│  5. VLA 条件生成                                             │
-│     L = E_{t,a₀,a₁} [ ||v_θ(a_t, t, h) - (a₁-a₀)||² ]    │
-│     其中 h = VLM(image, text)                                │
-│                                                              │
-│  6. 连续性方程                                               │
-│     ∂p_t/∂t + ∇·(p_t · v_t) = 0                             │
-└─────────────────────────────────────────────────────────────┘
-```
+**1. 线性插值路径**
+
+$$x_t = (1-t) \cdot x_0 + t \cdot x_1, \quad t \in [0, 1]$$
+
+**2. 条件速度场**
+
+$$u_t(x_t \mid x_1) = x_1 - x_0$$
+
+**3. CFM 训练损失**
+
+$$\mathcal{L} = \mathbb{E}_{t, x_0, x_1} \left[ \| v_\theta(x_t, t) - (x_1 - x_0) \|^2 \right]$$
+
+**4. ODE 积分（推理）**
+
+$$x_{k+1} = x_k + \Delta t \cdot v_\theta(x_k, t_k)$$
+
+**5. VLA 条件生成**
+
+$$\mathcal{L} = \mathbb{E}_{t, a_0, a_1} \left[ \| v_\theta(a_t, t, h) - (a_1 - a_0) \|^2 \right], \quad h = \text{VLM}(\text{image}, \text{text})$$
+
+**6. 连续性方程**
+
+$$\frac{\partial p_t}{\partial t} + \nabla \cdot (p_t \cdot v_t) = 0$$
 
 ---
 
