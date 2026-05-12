@@ -884,6 +884,7 @@ $$\text{输出: } a_{10} \approx [\text{未来 50 步动作}] \quad \text{(高�
 > **图：π0 VLA Flow Matching 整体架构**
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': {'primaryColor': '#bbdefb', 'primaryTextColor': '#000000', 'primaryBorderColor': '#1565c0', 'lineColor': '#333333', 'secondaryColor': '#c8e6c9', 'tertiaryColor': '#fff9c4', 'fontFamily': 'Arial', 'fontSize': '14px'}}}%%
 graph TB
     subgraph 输入层["① 输入层"]
         IMG["📷 多视角图像<br/>(腕部 + 基座)"]
@@ -941,11 +942,31 @@ graph TB
     S0 --> S1 --> S2 --> SD --> S10
     S10 --> OUT
 
-    style 输入层 fill:#e8f4f8,stroke:#2196F3
-    style 编码层 fill:#e8f5e9,stroke:#4CAF50
-    style VLM fill:#fff3e0,stroke:#FF9800
-    style AE fill:#fce4ec,stroke:#E91E63
-    style FM fill:#f3e5f5,stroke:#9C27B0
+    style 输入层 fill:#bbdefb,stroke:#1565c0,color:#000000
+    style 编码层 fill:#c8e6c9,stroke:#2e7d32,color:#000000
+    style VLM fill:#ffe0b2,stroke:#e65100,color:#000000
+    style AE fill:#f8bbd0,stroke:#c2185b,color:#000000
+    style FM fill:#e1bee7,stroke:#7b1fa2,color:#000000
+    style IMG color:#000000
+    style TXT color:#000000
+    style PROP color:#000000
+    style VIT color:#000000
+    style TOK color:#000000
+    style MLP_P color:#000000
+    style ATT1 color:#000000
+    style ATT2 color:#000000
+    style DOTS color:#000000
+    style ATTN color:#000000
+    style NOISE color:#000000
+    style CROSS color:#000000
+    style FFN_A color:#000000
+    style VOUT color:#000000
+    style S0 color:#000000
+    style S1 color:#000000
+    style S2 color:#000000
+    style SD color:#000000
+    style S10 color:#000000
+    style OUT color:#000000
 ```
 
 π0 的一个关键创新是 **Action Expert**——在 VLM 的 Transformer 中插入专门处理动作的额外参数：
@@ -973,6 +994,7 @@ graph TB
 > **图：π0 Transformer 混合层——语义路径 vs 动作路径**
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': {'primaryTextColor': '#000000', 'lineColor': '#333333', 'fontFamily': 'Arial', 'fontSize': '14px'}}}%%
 graph LR
     subgraph 单层内部["Transformer 单层内部结构 (混合层)"]
         direction TB
@@ -997,8 +1019,16 @@ graph LR
     H -.->|"Key, Value"| CA
     CA --> FFN_ACT --> AO
 
-    style 语义路径 fill:#fff3e0,stroke:#FF9800
-    style 动作路径 fill:#fce4ec,stroke:#E91E63
+    style 语义路径 fill:#ffe0b2,stroke:#e65100,color:#000000
+    style 动作路径 fill:#f8bbd0,stroke:#c2185b,color:#000000
+    style VT color:#000000
+    style SA color:#000000
+    style FFN_S color:#000000
+    style H color:#000000
+    style AT color:#000000
+    style CA color:#000000
+    style FFN_ACT color:#000000
+    style AO color:#000000
 ```
 
 每一个 Transformer 层内部有**两条并行路径**，处理不同类型的 Token：
@@ -1014,6 +1044,64 @@ graph LR
 - 操作：**Cross-Attention**（$Q = a_t$，$K, V = h$）→ FFN_action
 - 输出：速度预测 $v_\theta(a_t, t, h)$
 - 参数来源：**完全独立的 ~860M 额外参数**（不与语义路径共享 FFN）
+
+#### 本体感受 Token 的作用
+
+本体感受（Proprioception）Token 编码的是机器人当前的**物理状态**——关节角度、关节速度、末端执行器位姿等。它有三层作用：
+
+**① 闭合感知-动作回路**：没有本体感受，模型只知道"看到了什么"和"要做什么"，但不知道"自己现在在哪"。
+
+```
+只有视觉+语言:  "杯子在右边15cm" + "拿起杯子" → 手该往右移 (但右移多少？不知道手在哪)
+加上本体感受:    "杯子在右边15cm" + "拿起杯子" + "手臂当前角度=[0.1, -0.3, ...]"
+               → 需要右移 15cm ≈ 关节增量 [Δq1, Δq2, ...] (精确计算)
+```
+
+**② 跨具身泛化**：π0 支持 7 种不同机器人（UR5e、Franka、ALOHA 等），本体感受 Token 告诉模型"我是谁"：
+
+```
+Franka (7-DOF):  本体 = [q1..q7, dq1..dq7, gripper_width]  → 14+1维
+ALOHA (双臂):    本体 = [q_left_1..7, q_right_1..7, ...]    → 28+维
+UR5e (6-DOF):    本体 = [q1..q6, dq1..dq6, ...]             → 12+维
+```
+
+模型通过 MLP 将不同维度的本体信息投射到统一的 Token 嵌入空间。
+
+**③ 精确动作增量**：本体感受让速度场网络 $v_\theta$ 知道"当前姿态 → 目标姿态"的距离，从而预测出正确的运动方向和幅度。
+
+| 功能 | 没有本体感受 | 有本体感受 |
+|:---|:---|:---|
+| 知道自己在哪 | ❌ 只靠视觉猜测 | ✅ 精确关节状态 |
+| 精确动作增量 | ❌ 只能预测方向 | ✅ 精确 Δq |
+| 跨机器人泛化 | ❌ 不知道具身形态 | ✅ 通过本体区分 |
+| 接触/碰撞感知 | ❌ 看不到的力 | ✅ 关节力矩反馈 |
+
+#### 时间嵌入 $\text{embed}(t)$ 的作用
+
+时间嵌入指的是 Flow Matching 去噪过程中的**当前去噪进度 $t \in [0, 1]$** 经过编码后得到的向量。它告诉 Action Expert："当前的噪声动作 $a_t$ 处于从纯噪声到真实动作之间的哪个阶段。"
+
+**为什么需要它？** 同一个 $v_\theta$ 在 10 步 Euler 积分中被重复调用，但每一步面对的输入性质完全不同：
+
+```
+t = 0.0 (第1步):  a_t ≈ 纯高斯噪声 → 网络做"粗定向"，速度大、方向粗略
+t = 0.5 (第5步):  a_t 半像真实动作 → 网络做"精修"，速度中等
+t = 0.9 (第10步): a_t 接近真实动作 → 网络做"抛光"，速度小、方向精确
+```
+
+如果不告诉网络当前 $t$，它无法区分"纯噪声"和"接近完成的动作"——就像让画家画画但不告诉他是草稿还是精修阶段。
+
+**编码方式**：$t$ 是标量，通过正弦位置编码转为高维向量（与 Transformer 位置编码同构）：
+
+$$\text{embed}(t) = [\sin(w_1 t),\, \cos(w_1 t),\, \sin(w_2 t),\, \cos(w_2 t),\, \ldots] \in \mathbb{R}^{d}$$
+
+其中 $w_i$ 是不同频率。低频分量区分"前期 vs 后期"，高频分量区分细微进度差异。编码后再过一个小 MLP 投射到模型隐藏维度。
+
+| | Transformer 位置编码 | Flow Matching 时间嵌入 |
+|:---|:---|:---|
+| 编码对象 | Token 在序列中的位置 $i$ | 去噪进度 $t$ |
+| 取值范围 | 整数 $0, 1, 2, \ldots$ | 连续 $[0, 1]$ |
+| 作用 | 区分"第几个词" | 区分"第几步去噪" |
+| 编码方法 | 正弦/RoPE | 正弦 + MLP |
 
 #### Cross-Attention 的含义
 
@@ -1075,6 +1163,7 @@ Transformer 单层内部:
 > **图：π0 推理时序——从观测到动作执行**
 
 ```mermaid
+%%{init: {'theme': 'base', 'themeVariables': {'actorTextColor': '#000000', 'actorBkg': '#bbdefb', 'actorBorder': '#1565c0', 'signalColor': '#000000', 'signalTextColor': '#000000', 'labelTextColor': '#000000', 'loopTextColor': '#000000', 'noteBkgColor': '#fff9c4', 'noteTextColor': '#000000', 'fontFamily': 'Arial', 'fontSize': '14px'}}}%%
 sequenceDiagram
     participant ENV as 🌍 环境
     participant VLM as 🧠 VLM Backbone
