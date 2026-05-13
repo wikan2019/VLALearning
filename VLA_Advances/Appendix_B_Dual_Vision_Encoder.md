@@ -243,6 +243,57 @@ VLA 选择 SigLIP 的原因:
      → OpenVLA 的 Prismatic VLM 也使用 SigLIP
 ```
 
+### (e) SigLIP SO400M 架构细节
+
+```
+SO400M 名称含义:
+  S    = SigLIP (Sigmoid 损失)
+  O    = Shape-Optimized architecture (优化后的 ViT 变体)
+  400M = ~4 亿参数
+
+架构规格:
+  - 基础: ViT-L/16 变体 (patch size = 16×16)
+  - 层数: 26 层 Transformer
+  - 隐藏维度: 1152
+  - 注意力头数: 16
+  - 训练数据: WebLI (~10B 图文对)
+```
+
+### (f) 多分辨率支持与 NaViT 变长序列
+
+SigLIP SO400M 支持 224/384/512 等多种输入分辨率，核心机制：
+
+**Patch 化（分辨率无关）**：固定 16×16 patch，token 数量随分辨率自然变化：
+
+```
+224×224 → 14×14 = 196 个 patch token
+384×384 → 24×24 = 576 个 patch token
+512×512 → 32×32 = 1024 个 patch token
+```
+
+**NaViT (Native Resolution ViT) 变长序列打包**：
+
+NaViT 允许同一 batch 内的不同图像以各自的原始分辨率输入，打包成一个变长序列一起处理：
+
+```
+传统 ViT batch (固定长度，需补齐):
+  图片A (224×224): 196 tokens → 补齐到 1024 tokens (浪费 828 tokens 的计算)
+  图片B (512×512): 1024 tokens
+  图片C (384×384): 576 tokens → 补齐到 1024 tokens (浪费 448 tokens)
+
+NaViT packing (变长，无浪费):
+  [图片A的196 tokens | 图片B的1024 tokens | 图片C的576 tokens]
+  → 总共 1796 tokens，无浪费
+  → 用 attention mask 防止不同图像的 token 互相注意
+```
+
+关键实现细节：
+- **Factorized Position Encoding**：位置编码分解为 (行号, 列号)，不依赖固定序列长度，任意分辨率都能编码
+- **Masked Self-Attention**：同一 batch 中不同图像的 token 用 mask 隔开，防止信息泄露
+- **无需位置编码插值**：基于 patch 的 (row, col) 坐标而非绝对序列位置
+
+**在 π0 中的应用**：π0 接收多视角图像（腕部相机 + 基座相机），可能分辨率不同。NaViT 让它们以原始分辨率输入，打包在一起处理，避免 resize 导致的信息损失。
+
 ---
 
 ## 4. DINOv2：自监督视觉编码器
