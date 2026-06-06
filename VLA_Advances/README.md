@@ -93,6 +93,11 @@ VLA 是 VLM 的自然延伸——**VLM 让模型"看懂世界"，VLA 则让模�
 *   **代表模型**：RT-2-X, OpenVLA-OFT, π0.5, Octo, GR-2
 *   **关联阅读**：→ [VLM/16. SOTA 模型](../VLM_Advances/16_SOTA_Models_Review.md)（VLM 基座的对比）
 
+### 28. [VLA 调试与可解释性：三层视觉归因方法](./28_VLA_Debug_Interpretability.md)
+*   **演进点**：从「黑盒策略」到分层诊断——ViT 自注意力、LLM→视觉 cross-attention、动作梯度归因
+*   **核心价值**：区分「看错图 / 没接地 / 动作头算错」三类根因，附文献索引与调试流程
+*   **关联阅读**：→ [19. VLA 架构](./19_VLA_Architecture.md)、→ [22f. π0 部署 FAQ](./22f_Pi0_Deployment_FAQ.md)、→ [VLM/S2 视觉接地](../VLM_Advances/VLM_S2_Visual_Grounding.md)
+
 ---
 
 ## 附录
@@ -169,6 +174,7 @@ VLA 是 VLM 的自然延伸——**VLM 让模型"看懂世界"，VLA 则让模�
 
 ### 💡 实践路径
 - **部署 VLA**：26 → 21（边缘推理 + OpenVLA 开源实现）
+- **故障调试与可解释性**：28（ViT / cross-attention / action-gradient 三层归因）
 - **提升性能**：23 → 24 → 25（数据 → 规划 → 泛化）
 - **选型决策**：27 → 对比表格（根据场景选择模型）
 
