@@ -125,3 +125,8 @@ N×N 的 Attention Map。 在反向传播时，它利用保留的 Output 和 Log
 
 # RIFT 论文阅读
 请介绍 34 篇文章里的 RIFT (2025) 方法，另写一篇 markdown 文档
+
+# 远端仓库同步至本地
+请将远端 vla 仓库 同步至本地，方便我在本地阅读和编辑 vla 仓库内容
+
+→ 已完成：`github.com/wikan2019/VLALearning` 已同步至当前工作区，本地 HEAD 与 `origin/main` 一致（`974206d`）。可直接阅读与编辑各目录文档（含 `VLA_Advances/` 等）。
