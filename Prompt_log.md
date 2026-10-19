@@ -130,3 +130,8 @@ N×N 的 Attention Map。 在反向传播时，它利用保留的 Output 和 Log
 请将远端 vla 仓库 同步至本地，方便我在本地阅读和编辑 vla 仓库内容
 
 → 已完成：`github.com/wikan2019/VLALearning` 已同步至当前工作区，本地 HEAD 与 `origin/main` 一致（`974206d`）。可直接阅读与编辑各目录文档（含 `VLA_Advances/` 等）。
+
+# Classifier Guidance vs Classifier-Free Guidance
+请分别为我介绍下 classifier guidance diffusion 和 classifier-free guidance diffusion 分别要解决什么问题，以及他们的解决方法是什么？
+
+→ 已写入：`VLA_Advances/Appendix_D_Classifier_Guidance.md`，并在 `VLA_Advances/README.md` 附录索引中挂载。
