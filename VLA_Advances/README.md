@@ -117,6 +117,11 @@ VLA 是 VLM 的自然延伸——**VLM 让模型"看懂世界"，VLA 则让模�
 *   **核心价值**：系统性介绍 VLA 和自动驾驶领域的数据处理方法与数据提取技术，涵盖从人类视频中提取潜在动作、合成数据 10× 扩增、数据质量过滤等关键手段
 *   **关联阅读**：→ [23. 跨具身数据](./23_Data_Cross_Embodiment.md)（数据集详解）、→ [35. Tesla FSD](../AD_E2E_Advances/35_Tesla_FSD.md)（数据引擎）
 
+### Appendix D. [Classifier Guidance 与 Classifier-Free Guidance](./Appendix_D_Classifier_Guidance.md)
+*   **内容**：条件扩散可控生成的两条路线——Classifier Guidance（外部分类器梯度）与 Classifier-Free Guidance（条件 dropout + 有条件/无条件外推）各自要解决的问题、数学形式、训练/采样流程与对比
+*   **核心价值**：理解 CFG 为何成为文生图与多数条件生成的默认手段，以及它与早期 classifier guidance 的继承关系；可衔接 Diffusion Policy / Flow Matching 中的条件引导
+*   **关联阅读**：→ [Appendix A. Flow Matching](./Appendix_A_Flow_Matching.md)、→ [20. 动作表示](./20_Action_Tokenization.md)
+
 ---
 
 ## 🔗 技术关联图
