@@ -11,3 +11,4 @@
 | 3 | ResAD: Normalized Residual Trajectory Modeling for End-to-End Autonomous Driving | Horizon Robotics, CVPR 2026 | E2EAD Planning | [ResAD_Normalized_Residual_Trajectory_Modeling_CVPR2026.pdf](ResAD_Normalized_Residual_Trajectory_Modeling_CVPR2026.pdf) |
 | 4 | ControlNet / ControlNeXt × Flow Matching：变道风格适配阅读指南 | 阅读笔记（多篇综述） | Controllable FM Planning | [ControlNet_ControlNeXt_FlowMatching_LaneChange_Style.md](ControlNet_ControlNeXt_FlowMatching_LaneChange_Style.md) |
 | 5 | AdaLN 条件注入：原理论文与自动驾驶应用阅读指南 | 阅读笔记（多篇综述） | Conditioning / DiT Planning | [AdaLN_Conditioning_Paper_Guide.md](AdaLN_Conditioning_Paper_Guide.md) |
+| 6 | RL on Flow Matching and Diffusion（DDPO / VideoAlign / Flow-GRPO） | 阅读笔记（3 篇） | Generative RL | [rl_on_flow_matching_and_diffusion/](rl_on_flow_matching_and_diffusion/README.md) |
