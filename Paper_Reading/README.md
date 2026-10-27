@@ -12,3 +12,5 @@
 | 4 | ControlNet / ControlNeXt × Flow Matching：变道风格适配阅读指南 | 阅读笔记（多篇综述） | Controllable FM Planning | [ControlNet_ControlNeXt_FlowMatching_LaneChange_Style.md](ControlNet_ControlNeXt_FlowMatching_LaneChange_Style.md) |
 | 5 | AdaLN 条件注入：原理论文与自动驾驶应用阅读指南 | 阅读笔记（多篇综述） | Conditioning / DiT Planning | [AdaLN_Conditioning_Paper_Guide.md](AdaLN_Conditioning_Paper_Guide.md) |
 | 6 | RL on Flow Matching and Diffusion（DDPO / VideoAlign / Flow-GRPO） | 阅读笔记（3 篇） | Generative RL | [rl_on_flow_matching_and_diffusion/](rl_on_flow_matching_and_diffusion/README.md) |
+| 7 | HiDrop: Hierarchical Vision Token Reduction in MLLMs | EIT / 中科大 / 上海交大 / LMU, arXiv 2026 | MLLM Efficiency | [HiDrop_Hierarchical_Vision_Token_Reduction_2602.23699.md](HiDrop_Hierarchical_Vision_Token_Reduction_2602.23699.md) |
+| 8 | Locate, Steer, and Improve: Actionable Mechanistic Interpretability Survey | 港大 / 复旦等, arXiv 2026 | LLM Interpretability | [locate_steer_improve/](locate_steer_improve/README.md) |
