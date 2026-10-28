@@ -14,3 +14,4 @@
 | 6 | RL on Flow Matching and Diffusion（DDPO / VideoAlign / Flow-GRPO） | 阅读笔记（3 篇） | Generative RL | [rl_on_flow_matching_and_diffusion/](rl_on_flow_matching_and_diffusion/README.md) |
 | 7 | HiDrop: Hierarchical Vision Token Reduction in MLLMs | EIT / 中科大 / 上海交大 / LMU, arXiv 2026 | MLLM Efficiency | [HiDrop_Hierarchical_Vision_Token_Reduction_2602.23699.md](HiDrop_Hierarchical_Vision_Token_Reduction_2602.23699.md) |
 | 8 | Locate, Steer, and Improve: Actionable Mechanistic Interpretability Survey | 港大 / 复旦等, arXiv 2026 | LLM Interpretability | [locate_steer_improve/](locate_steer_improve/README.md) |
+| 9 | VLA 常见问题 × Locate / Steer / Improve 对照草稿 | 阅读笔记（多篇拼接） | VLA Interpretability | [VLA_Common_Issues_Locate_Steer_Improve.md](VLA_Common_Issues_Locate_Steer_Improve.md) |
